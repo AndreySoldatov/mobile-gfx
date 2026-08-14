@@ -1,0 +1,25 @@
+[package]
+name = "mobile_gfx"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+bytemuck = { version = "1.25.2", features = ["derive"] }
+glam = "0.33.3"
+log = "0.4.33"
+pollster = "1.0.1"
+rand = "0.10.2"
+wgpu = "30.0.0"
+winit = { version = "0.30.13", features = ["android-game-activity"] }
+tracing = { version = "0.1.40", features = ["log"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+env_logger = "0.11.11"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15.1"
+
+[lib]
+name = "mobile_gfx"
+crate-type = ["cdylib", "rlib"]
