@@ -6,7 +6,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.andrey.mobile_gfx"
+        applicationId = "com.andrey.android_demo"
         minSdk = 31
         targetSdk = 35
         versionCode = 1
@@ -30,7 +30,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    namespace = 'com.andrey.mobile_gfx'
+    namespace = 'com.andrey.android_demo'
 }
 
 dependencies {

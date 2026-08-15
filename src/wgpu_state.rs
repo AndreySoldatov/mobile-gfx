@@ -1,5 +1,8 @@
 use std::sync::Arc;
+use wgpu::SurfaceTexture;
 use winit::window::Window;
+
+use crate::owned_window_handle::OwnedWindowHandle;
 
 pub struct WgpuState {
     pub instance: wgpu::Instance,
@@ -76,7 +79,9 @@ pub fn wgpu_init(window: Arc<Window>) -> anyhow::Result<(WgpuState, WgpuSurface)
 }
 
 pub fn create_wgpu_surface(wgpu_state: &WgpuState, window: Arc<Window>) -> WgpuSurface {
-    let surface = wgpu_state.instance.create_surface(window.clone()).unwrap();
+    let owh = OwnedWindowHandle::new(window.clone()).unwrap();
+
+    let surface = wgpu_state.instance.create_surface(owh).unwrap();
 
     let surface_caps = surface.get_capabilities(&wgpu_state.adapter);
     let surface_format = surface_caps
@@ -100,4 +105,25 @@ pub fn create_wgpu_surface(wgpu_state: &WgpuState, window: Arc<Window>) -> WgpuS
     surface.configure(&wgpu_state.device, &config);
 
     WgpuSurface { surface, config }
+}
+
+pub fn issue_surface_texture(
+    surface: &WgpuSurface,
+    device: &wgpu::Device,
+) -> Option<SurfaceTexture> {
+    Some(match surface.surface.get_current_texture() {
+        wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
+        wgpu::CurrentSurfaceTexture::Timeout
+        | wgpu::CurrentSurfaceTexture::Occluded
+        | wgpu::CurrentSurfaceTexture::Validation => {
+            return None;
+        }
+        wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Suboptimal(_) => {
+            surface.surface.configure(device, &surface.config);
+            return None;
+        }
+        wgpu::CurrentSurfaceTexture::Lost => {
+            return None;
+        }
+    })
 }

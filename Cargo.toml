@@ -13,6 +13,7 @@ rand = "0.10.2"
 wgpu = "30.0.0"
 winit = { version = "0.30.13", features = ["android-game-activity"] }
 tracing = { version = "0.1.40", features = ["log"] }
+raw-window-handle = "0.6.2"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 env_logger = "0.11.11"
@@ -20,6 +21,6 @@ env_logger = "0.11.11"
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15.1"
 
-[lib]
-name = "mobile_gfx"
-crate-type = ["cdylib", "rlib"]
+[workspace]
+resolver = "3"
+members = ["android-demo"]

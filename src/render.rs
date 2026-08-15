@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{blit::Blit, wgpu_state::WgpuState};
@@ -9,15 +11,15 @@ pub struct RenderState {
     pub vertex_uniform_bg: wgpu::BindGroup,
     pub pixel_size: (u32, u32),
 
-    pub vertices: Vec<Vertex>,
+    pub vertices: RefCell<Vec<Vertex>>,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    pos: [f32; 2],
-    uv: [f32; 2],
-    col: [f32; 3],
+    pub pos: [f32; 2],
+    pub uv: [f32; 2],
+    pub col: [f32; 3],
 }
 
 impl Vertex {
@@ -53,7 +55,7 @@ pub struct VertexUniform {
 }
 
 impl RenderState {
-    pub fn new(wgpu_state: &WgpuState, config: &wgpu::SurfaceConfiguration) -> Self {
+    pub(crate) fn new(wgpu_state: &WgpuState, config: &wgpu::SurfaceConfiguration) -> Self {
         let pixel_size = (180, 400);
 
         // TODO: change uniform to embedded constant
@@ -160,12 +162,12 @@ impl RenderState {
             vertex_uniform_bg: ver_uni_bg,
             vertex_uniform_buffer,
 
-            vertices: vec![],
+            vertices: RefCell::new(vec![]),
         }
     }
 
-    pub fn render(
-        &mut self,
+    pub(crate) fn render(
+        &self,
         config: &wgpu::SurfaceConfiguration,
         encoder: &mut wgpu::CommandEncoder,
         surface_view: &wgpu::TextureView,
@@ -191,17 +193,20 @@ impl RenderState {
                 ..Default::default()
             });
 
-            if !self.vertices.is_empty() {
-                let vb = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex buffer"),
-                    contents: &bytemuck::cast_slice(&self.vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
+            {
+                let vertices = self.vertices.borrow();
+                if !vertices.is_empty() {
+                    let vb = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Vertex buffer"),
+                        contents: &bytemuck::cast_slice(&vertices),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
 
-                render_pass.set_pipeline(&self.pipeline);
-                render_pass.set_bind_group(0, &self.vertex_uniform_bg, &[]);
-                render_pass.set_vertex_buffer(0, vb.slice(..));
-                render_pass.draw(0..(self.vertices.len() as u32), 0..1);
+                    render_pass.set_pipeline(&self.pipeline);
+                    render_pass.set_bind_group(0, &self.vertex_uniform_bg, &[]);
+                    render_pass.set_vertex_buffer(0, vb.slice(..));
+                    render_pass.draw(0..(vertices.len() as u32), 0..1);
+                }
             }
         }
 
@@ -230,30 +235,28 @@ impl RenderState {
             blit_pass.draw(0..3, 0..1);
         }
 
-        self.vertices.clear();
+        self.vertices.borrow_mut().clear();
     }
 
-    pub fn draw_triangle(&mut self, p1: glam::Vec2, p2: glam::Vec2, p3: glam::Vec2, color: Color) {
-        self.vertices.push(Vertex {
-            pos: [p1.x, p1.y],
-            uv: [0.0, 0.0],
-            col: [color.r, color.g, color.b],
-        });
-        self.vertices.push(Vertex {
-            pos: [p2.x, p2.y],
-            uv: [0.0, 0.0],
-            col: [color.r, color.g, color.b],
-        });
-        self.vertices.push(Vertex {
-            pos: [p3.x, p3.y],
-            uv: [0.0, 0.0],
-            col: [color.r, color.g, color.b],
-        });
+    #[allow(dead_code)]
+    pub(crate) fn push_vertex(&self, vert: Vertex) {
+        self.vertices.borrow_mut().push(vert);
     }
-}
 
-pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
+    #[allow(dead_code)]
+    pub(crate) fn append_vertices(&self, verts: &[Vertex]) {
+        self.vertices.borrow_mut().extend_from_slice(verts);
+    }
+
+    pub fn pixel_size(&self) -> (u32, u32) {
+        self.pixel_size
+    }
+
+    pub fn width(&self) -> f32 {
+        self.pixel_size.0 as f32
+    }
+
+    pub fn height(&self) -> f32 {
+        self.pixel_size.1 as f32
+    }
 }
