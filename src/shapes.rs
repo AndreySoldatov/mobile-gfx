@@ -72,4 +72,36 @@ impl RenderState {
         let p3 = pos + dims;
         self.draw_quad(p0, p1, p3, p2, c);
     }
+
+    pub fn draw_sprite(&mut self, pos: Vec2, _name: &str, c: Color) {
+        let p0 = pos;
+        let p1 = pos + 100.0 * Vec2::X;
+        let p2 = pos + 100.0 * Vec2::Y;
+        let p3 = pos + 100.0;
+        self.append_vertices(
+            &[
+                Vertex {
+                    pos: [p0.x, p0.y],
+                    col: [c.r, c.g, c.b],
+                    uv: [0.0, 0.0],
+                },
+                Vertex {
+                    pos: [p2.x, p2.y],
+                    col: [c.r, c.g, c.b],
+                    uv: [0.0, 1.0],
+                },
+                Vertex {
+                    pos: [p3.x, p3.y],
+                    col: [c.r, c.g, c.b],
+                    uv: [1.0, 1.0],
+                },
+                Vertex {
+                    pos: [p1.x, p1.y],
+                    col: [c.r, c.g, c.b],
+                    uv: [1.0, 0.0],
+                },
+            ],
+            &[0, 1, 2, 2, 3, 0],
+        );
+    }
 }

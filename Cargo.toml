@@ -14,6 +14,7 @@ wgpu = "30.0.0"
 winit = { version = "0.30.13", features = ["android-game-activity"] }
 tracing = { version = "0.1.40", features = ["log"] }
 raw-window-handle = "0.6.2"
+image = "0.25.10"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 env_logger = "0.11.11"

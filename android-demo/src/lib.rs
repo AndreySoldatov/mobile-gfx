@@ -40,7 +40,7 @@ impl MyState {
 
 impl UserState for MyState {
     fn on_create(&self) -> CreationContext {
-        CreationContext { scale: 12 }
+        CreationContext { scale: 6 }
     }
     fn update(&mut self) {
         self.frame += 1;
@@ -65,6 +65,13 @@ impl UserState for MyState {
         let h = painter.height();
         let rmat = Mat2::from_angle(self.time);
 
+        painter.draw_triangle(
+            rmat * Vec2::new(-10.0, 10.0) + Vec2::new(w * 0.75, h * 0.75),
+            rmat * Vec2::new(0.0, -10.0) + Vec2::new(w * 0.75, h * 0.75),
+            rmat * Vec2::new(10.0, 10.0) + Vec2::new(w * 0.75, h * 0.75),
+            Color::GRAY,
+        );
+
         painter.draw_line(
             rmat * Vec2::new(0.0, -40.0) + Vec2::new(w / 2.0, h / 2.0),
             rmat * Vec2::new(0.0, 40.0) + Vec2::new(w / 2.0, h / 2.0),
@@ -72,7 +79,11 @@ impl UserState for MyState {
             Color::RED,
         );
 
-        painter.draw_rect(Vec2::new(10.0, 10.0), Vec2::new(50.0, 50.0), Color::GREEN);
+        painter.draw_line(Vec2::new(0.0, 0.0), Vec2::new(w, h), 1.0, Color::WHITE);
+        painter.draw_line(Vec2::new(40.0, 0.0), Vec2::new(40.0, h), 1.0, Color::WHITE);
+        painter.draw_line(Vec2::new(0.0, 40.0), Vec2::new(w, 40.0), 1.0, Color::WHITE);
+
+        painter.draw_sprite(Vec2::new(20.0, 20.0), "", Color::WHITE);
     }
 }
 

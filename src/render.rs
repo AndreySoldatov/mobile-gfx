@@ -1,6 +1,7 @@
 use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{
+    atlas::Atlas,
     blit::Blit,
     buffer::Buffer,
     color::{Color, srgb_to_linear},
@@ -18,6 +19,7 @@ pub struct RenderState {
     pub(crate) vertex_buffer: Buffer<Vertex>,
     pub(crate) index_buffer: Buffer<u32>,
     pub(crate) clear_color: wgpu::Color,
+    pub(crate) atlas: Atlas,
 }
 
 #[repr(C)]
@@ -111,12 +113,14 @@ impl RenderState {
                 }],
             });
 
+        let atlas = Atlas::new(&wgpu_state);
+
         let render_pipeline_layout =
             wgpu_state
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("RPL"),
-                    bind_group_layouts: &[Some(&ver_uni_bgl)],
+                    bind_group_layouts: &[Some(&ver_uni_bgl), Some(&atlas.bgl)],
                     immediate_size: 0,
                 });
 
@@ -184,6 +188,7 @@ impl RenderState {
             ),
 
             clear_color: wgpu::Color::BLACK,
+            atlas,
         }
     }
 
@@ -244,6 +249,7 @@ impl RenderState {
                 if self.vertex_buffer.length() > 0 {
                     render_pass.set_pipeline(&self.pipeline);
                     render_pass.set_bind_group(0, &self.vertex_uniform_bg, &[]);
+                    render_pass.set_bind_group(1, &self.atlas.bg, &[]);
                     render_pass.set_vertex_buffer(0, self.vertex_buffer.slice());
                     render_pass
                         .set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);

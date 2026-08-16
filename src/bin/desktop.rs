@@ -63,7 +63,7 @@ impl UserState for MyState {
         painter.draw_line(Vec2::new(40.0, 0.0), Vec2::new(40.0, h), 1.0, Color::WHITE);
         painter.draw_line(Vec2::new(0.0, 40.0), Vec2::new(w, 40.0), 1.0, Color::WHITE);
 
-        painter.draw_rect(Vec2::new(10.0, 10.0), Vec2::new(50.0, 50.0), Color::GREEN);
+        painter.draw_sprite(Vec2::new(20.0, 20.0), "", Color::WHITE);
     }
 }
 

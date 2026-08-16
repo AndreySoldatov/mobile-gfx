@@ -44,13 +44,12 @@ fn vs_main(
     return out;
 }
 
-// @group(0) @binding(0)
-// var diff: texture_2d<f32>;
-// @group(0) @binding(1)
-// var diff_sampler: sampler;
+@group(1) @binding(0)
+var atlas: texture_2d<f32>;
+@group(1) @binding(1)
+var atlas_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // return textureSample(diff, diff_sampler, in.uv) * vec4(in.col, 1.0);
-    return vec4(in.col, 1.0);
+    return textureSample(atlas, atlas_sampler, in.uv) * vec4(in.col, 1.0);
 }

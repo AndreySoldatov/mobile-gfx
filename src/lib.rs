@@ -1,4 +1,5 @@
 pub mod app;
+pub mod atlas;
 pub mod blit;
 pub mod buffer;
 pub mod color;
