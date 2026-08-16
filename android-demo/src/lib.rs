@@ -7,7 +7,11 @@ use glam::{Mat2, Vec2};
 use log::LevelFilter;
 #[cfg(target_os = "android")]
 use mobile_gfx::app;
-use mobile_gfx::{render, shapes::Color, user_state::UserState};
+use mobile_gfx::{
+    color::Color,
+    render,
+    user_state::{CreationContext, UserState},
+};
 #[cfg(target_os = "android")]
 use winit::{
     event_loop::EventLoop,
@@ -19,6 +23,7 @@ struct MyState {
     dt: f32,
     time: f32,
     fps_window: VecDeque<f32>,
+    frame: u32,
 }
 
 impl MyState {
@@ -28,12 +33,17 @@ impl MyState {
             dt: 0.0,
             time: 0.0,
             fps_window: VecDeque::new(),
+            frame: 0,
         }
     }
 }
 
 impl UserState for MyState {
+    fn on_create(&self) -> CreationContext {
+        CreationContext { scale: 12 }
+    }
     fn update(&mut self) {
+        self.frame += 1;
         self.dt = self.clock.elapsed().as_secs_f32();
         self.time += self.dt;
         self.clock = std::time::Instant::now();
@@ -44,18 +54,25 @@ impl UserState for MyState {
         }
         let fps = 1.0
             / (self.fps_window.iter().fold(0.0, |acc, v| acc + v) / (self.fps_window.len() as f32));
-        log::info!("FPS: {}", fps);
+
+        if self.frame % 100 == 0 {
+            log::info!("FPS: {}, Frame: {}", fps, self.frame);
+        }
     }
-    fn draw(&self, painter: &render::RenderState) {
+    fn draw(&self, painter: &mut render::RenderState) {
+        painter.clear_color(Color::BLACK);
         let w = painter.width();
         let h = painter.height();
         let rmat = Mat2::from_angle(self.time);
-        painter.draw_triangle(
-            rmat * Vec2::new(-40.0, 40.0) + Vec2::new(w / 2.0, h / 2.0),
+
+        painter.draw_line(
             rmat * Vec2::new(0.0, -40.0) + Vec2::new(w / 2.0, h / 2.0),
-            rmat * Vec2::new(40.0, 40.0) + Vec2::new(w / 2.0, h / 2.0),
-            Color::WHITE,
+            rmat * Vec2::new(0.0, 40.0) + Vec2::new(w / 2.0, h / 2.0),
+            1.0,
+            Color::RED,
         );
+
+        painter.draw_rect(Vec2::new(10.0, 10.0), Vec2::new(50.0, 50.0), Color::GREEN);
     }
 }
 

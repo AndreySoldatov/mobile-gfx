@@ -1,5 +1,7 @@
 pub mod app;
 pub mod blit;
+pub mod buffer;
+pub mod color;
 pub mod owned_window_handle;
 pub mod render;
 pub mod shapes;

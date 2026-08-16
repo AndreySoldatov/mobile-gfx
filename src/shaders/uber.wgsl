@@ -1,3 +1,17 @@
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let cutoff = c < vec3<f32>(0.0031308);
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, cutoff);
+}
+
+fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
+    let cutoff = c < vec3<f32>(0.04045);
+    let lo = c / 12.92;
+    let hi = pow((c + 0.055) / 1.055, vec3<f32>(2.4));
+    return select(hi, lo, cutoff);
+}
+
 struct VertexInput {
     @location(0) pos: vec2<f32>,
     @location(1) uv: vec2<f32>,
@@ -22,7 +36,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = model.uv;
-    out.col = model.col;
+    out.col = srgb_to_linear(model.col);
     var clip_pos = (model.pos / uni.screen_size);
     clip_pos.y = 1.0 - clip_pos.y;
     clip_pos = clip_pos * 2.0 - 1.0;

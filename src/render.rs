@@ -1,17 +1,23 @@
-use std::cell::RefCell;
-
 use wgpu::{include_wgsl, util::DeviceExt};
 
-use crate::{blit::Blit, wgpu_state::WgpuState};
+use crate::{
+    blit::Blit,
+    buffer::Buffer,
+    color::{Color, srgb_to_linear},
+    wgpu_state::WgpuState,
+};
 
 pub struct RenderState {
-    pub pipeline: wgpu::RenderPipeline,
-    pub blit: Blit,
-    pub vertex_uniform_buffer: wgpu::Buffer,
-    pub vertex_uniform_bg: wgpu::BindGroup,
-    pub pixel_size: (u32, u32),
-
-    pub vertices: RefCell<Vec<Vertex>>,
+    pub(crate) pipeline: wgpu::RenderPipeline,
+    pub(crate) blit: Blit,
+    pub(crate) vertex_uniform_bg: wgpu::BindGroup,
+    pub(crate) vertex_uniform_buffer: wgpu::Buffer,
+    pub(crate) pixel_size: (u32, u32),
+    pub(crate) vertices: Vec<Vertex>,
+    pub(crate) indices: Vec<u32>,
+    pub(crate) vertex_buffer: Buffer<Vertex>,
+    pub(crate) index_buffer: Buffer<u32>,
+    pub(crate) clear_color: wgpu::Color,
 }
 
 #[repr(C)]
@@ -55,10 +61,11 @@ pub struct VertexUniform {
 }
 
 impl RenderState {
-    pub(crate) fn new(wgpu_state: &WgpuState, config: &wgpu::SurfaceConfiguration) -> Self {
-        let pixel_size = (180, 400);
-
-        // TODO: change uniform to embedded constant
+    pub(crate) fn new(
+        wgpu_state: &WgpuState,
+        config: &wgpu::SurfaceConfiguration,
+        pixel_size: (u32, u32),
+    ) -> Self {
         let shader = wgpu_state
             .device
             .create_shader_module(include_wgsl!("shaders/uber.wgsl"));
@@ -162,17 +169,62 @@ impl RenderState {
             vertex_uniform_bg: ver_uni_bg,
             vertex_uniform_buffer,
 
-            vertices: RefCell::new(vec![]),
+            vertices: vec![],
+            indices: vec![],
+
+            vertex_buffer: Buffer::new(
+                wgpu::BufferUsages::VERTEX,
+                &wgpu_state.device,
+                "Vertex Buffer",
+            ),
+            index_buffer: Buffer::new(
+                wgpu::BufferUsages::INDEX,
+                &wgpu_state.device,
+                "Index Buffer",
+            ),
+
+            clear_color: wgpu::Color::BLACK,
         }
     }
 
+    pub(crate) fn clear_buffers(&mut self) {
+        self.vertices.clear();
+        self.indices.clear();
+    }
+
+    pub(crate) fn resize(
+        &mut self,
+        new_pixel_size: (u32, u32),
+        wgpu_state: &WgpuState,
+        format: wgpu::TextureFormat,
+    ) {
+        if new_pixel_size == self.pixel_size {
+            return;
+        }
+        self.pixel_size = new_pixel_size;
+        self.blit.resize(new_pixel_size, &wgpu_state.device, format);
+        wgpu_state.queue.write_buffer(
+            &self.vertex_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[VertexUniform {
+                screen_size: [new_pixel_size.0 as f32, new_pixel_size.1 as f32],
+            }]),
+        );
+    }
+
     pub(crate) fn render(
-        &self,
+        &mut self,
         config: &wgpu::SurfaceConfiguration,
         encoder: &mut wgpu::CommandEncoder,
         surface_view: &wgpu::TextureView,
-        device: &wgpu::Device,
+        state: &WgpuState,
     ) {
+        self.vertex_buffer
+            .write(&self.vertices, &state.queue, &state.device);
+        self.index_buffer
+            .write(&self.indices, &state.queue, &state.device);
+        self.clear_buffers();
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -181,12 +233,7 @@ impl RenderState {
                     resolve_target: None,
                     depth_slice: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.2,
-                            g: 0.2,
-                            b: 0.2,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -194,58 +241,32 @@ impl RenderState {
             });
 
             {
-                let vertices = self.vertices.borrow();
-                if !vertices.is_empty() {
-                    let vb = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Vertex buffer"),
-                        contents: &bytemuck::cast_slice(&vertices),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    });
-
+                if self.vertex_buffer.length() > 0 {
                     render_pass.set_pipeline(&self.pipeline);
                     render_pass.set_bind_group(0, &self.vertex_uniform_bg, &[]);
-                    render_pass.set_vertex_buffer(0, vb.slice(..));
-                    render_pass.draw(0..(vertices.len() as u32), 0..1);
+                    render_pass.set_vertex_buffer(0, self.vertex_buffer.slice());
+                    render_pass
+                        .set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..(self.index_buffer.length() as u32), 0, 0..1);
                 }
             }
         }
 
-        {
-            let blit = &self.blit;
-
-            // Blit pass
-            let mut blit_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Blit Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: surface_view,
-                    resolve_target: None,
-                    depth_slice: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                ..Default::default()
-            });
-
-            let (x, y, w, h) = blit.integer_fit(config.width, config.height);
-            blit_pass.set_viewport(x, y, w, h, 0.0, 1.0);
-            blit_pass.set_pipeline(&blit.pipeline);
-            blit_pass.set_bind_group(0, &blit.bg, &[]);
-            blit_pass.draw(0..3, 0..1);
-        }
-
-        self.vertices.borrow_mut().clear();
+        self.blit.render(encoder, surface_view, config);
     }
 
     #[allow(dead_code)]
-    pub(crate) fn push_vertex(&self, vert: Vertex) {
-        self.vertices.borrow_mut().push(vert);
+    pub(crate) fn push_vertex(&mut self, vert: Vertex) {
+        self.indices.push(self.vertices.len() as u32);
+        self.vertices.push(vert);
     }
 
     #[allow(dead_code)]
-    pub(crate) fn append_vertices(&self, verts: &[Vertex]) {
-        self.vertices.borrow_mut().extend_from_slice(verts);
+    pub(crate) fn append_vertices(&mut self, verts: &[Vertex], indices: &[u32]) {
+        assert!(indices.len() > 0);
+        self.indices
+            .extend(indices.iter().map(|i| i + self.vertices.len() as u32));
+        self.vertices.extend_from_slice(verts);
     }
 
     pub fn pixel_size(&self) -> (u32, u32) {
@@ -258,5 +279,16 @@ impl RenderState {
 
     pub fn height(&self) -> f32 {
         self.pixel_size.1 as f32
+    }
+
+    pub fn clear_color(&mut self, color: Color) {
+        let color = srgb_to_linear(color);
+
+        self.clear_color = wgpu::Color {
+            r: color.r as f64,
+            g: color.g as f64,
+            b: color.b as f64,
+            a: 1.0,
+        }
     }
 }

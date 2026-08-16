@@ -9,6 +9,7 @@ pub struct Blit {
 
     pub pipeline: wgpu::RenderPipeline,
     pub bg: wgpu::BindGroup,
+    pub bgl: wgpu::BindGroupLayout,
 }
 
 impl Blit {
@@ -126,6 +127,7 @@ impl Blit {
             texture,
             view,
             bg,
+            bgl,
             pipeline,
         };
     }
@@ -139,5 +141,78 @@ impl Blit {
             w as f32,
             h as f32,
         )
+    }
+
+    pub fn resize(
+        &mut self,
+        new_pixel_size: (u32, u32),
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+    ) {
+        if new_pixel_size == self.pixel_size {
+            return;
+        }
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("blit texute"),
+            size: wgpu::Extent3d {
+                width: new_pixel_size.0,
+                height: new_pixel_size.1,
+                ..Default::default()
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.bgl,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+            label: Some("Blit bg"),
+        });
+
+        self.texture = texture;
+        self.view = view;
+        self.bg = bg;
+        self.pixel_size = new_pixel_size;
+    }
+
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        surface_view: &wgpu::TextureView,
+        config: &wgpu::SurfaceConfiguration,
+    ) {
+        // Blit pass
+        let mut blit_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Blit Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: surface_view,
+                resolve_target: None,
+                depth_slice: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        });
+
+        let (x, y, w, h) = self.integer_fit(config.width, config.height);
+        blit_pass.set_viewport(x, y, w, h, 0.0, 1.0);
+        blit_pass.set_pipeline(&self.pipeline);
+        blit_pass.set_bind_group(0, &self.bg, &[]);
+        blit_pass.draw(0..3, 0..1);
     }
 }
