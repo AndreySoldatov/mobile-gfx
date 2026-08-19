@@ -44,9 +44,12 @@ fn pack_images(
 
     let mut current_height: u32 = 0;
     let mut current_width: u32 = 0;
+    let mut height_step = images[pairs[0].0].height();
     for (k, w, h) in pairs {
         if current_width + w > size {
-            current_height += h;
+            current_height += height_step;
+            height_step = h;
+            current_width = 0;
             if current_height > size {
                 bail!(
                     "Combined height of the input images {} is bigger than atlas height {}",
@@ -54,7 +57,6 @@ fn pack_images(
                     size
                 );
             }
-            current_width = 0;
         }
         image::imageops::overlay(
             &mut atlas,

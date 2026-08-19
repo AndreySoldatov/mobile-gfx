@@ -17,21 +17,30 @@ struct MyState {
     time: f32,
     fps_window: VecDeque<f32>,
     cat: SpriteKey,
+    girl: SpriteKey,
 }
 
 impl UserState for MyState {
     fn create(cc: &mut mobile_gfx::user_state::CreationContext) -> Self {
-        cc.set_scale(2);
-        let image = image::load_from_memory(include_bytes!("assets/cat-dithered.png"))
+        cc.set_scale(3);
+
+        let cat = image::load_from_memory(include_bytes!("assets/cat-dithered.png"))
             .unwrap()
             .to_rgba8();
-        let image = cc.load_image(image);
+        let cat = cc.load_image(cat);
+
+        let girl = image::load_from_memory(include_bytes!("assets/pc-portrait.png"))
+            .unwrap()
+            .to_rgba8();
+        let girl = cc.load_image(girl);
+
         Self {
             clock: std::time::Instant::now(),
             dt: 0.0,
             time: 0.0,
             fps_window: VecDeque::new(),
-            cat: image,
+            cat,
+            girl,
         }
     }
     fn update(&mut self) {
@@ -79,6 +88,8 @@ impl UserState for MyState {
             self.cat,
             Color::WHITE,
         );
+
+        painter.draw_sprite(Vec2::new(w - 160.0, 0.0), self.girl, Color::WHITE);
     }
 }
 
