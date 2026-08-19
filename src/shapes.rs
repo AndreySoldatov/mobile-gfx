@@ -1,27 +1,34 @@
 use crate::{
     color::Color,
     render::{RenderState, Vertex},
+    user_state::SpriteKey,
 };
 use glam::Vec2;
 
 impl RenderState {
+    pub fn white_pixel(&self) -> [f32; 2] {
+        self.atlas.entries[&self.system_atlas_regions.white_pixel].uv[..2]
+            .try_into()
+            .unwrap()
+    }
+
     pub fn draw_triangle(&mut self, p0: Vec2, p1: Vec2, p2: Vec2, c: Color) {
         self.append_vertices(
             &[
                 Vertex {
                     pos: [p0.x, p0.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
                 Vertex {
                     pos: [p1.x, p1.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
                 Vertex {
                     pos: [p2.x, p2.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
             ],
             &[0, 1, 2],
@@ -34,22 +41,22 @@ impl RenderState {
                 Vertex {
                     pos: [p0.x, p0.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
                 Vertex {
                     pos: [p1.x, p1.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
                 Vertex {
                     pos: [p2.x, p2.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
                 Vertex {
                     pos: [p3.x, p3.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: self.white_pixel(),
                 },
             ],
             &[0, 1, 2, 2, 3, 0],
@@ -73,32 +80,34 @@ impl RenderState {
         self.draw_quad(p0, p1, p3, p2, c);
     }
 
-    pub fn draw_sprite(&mut self, pos: Vec2, _name: &str, c: Color) {
+    pub fn draw_sprite(&mut self, pos: Vec2, image: SpriteKey, c: Color) {
+        let atlas_entry = &self.atlas.entries[&image.0];
+        let sprite_dims = Vec2::new(atlas_entry.px.w as f32, atlas_entry.px.h as f32);
         let p0 = pos;
-        let p1 = pos + 100.0 * Vec2::X;
-        let p2 = pos + 100.0 * Vec2::Y;
-        let p3 = pos + 100.0;
+        let p1 = pos + sprite_dims * Vec2::X;
+        let p2 = pos + sprite_dims * Vec2::Y;
+        let p3 = pos + sprite_dims;
         self.append_vertices(
             &[
                 Vertex {
                     pos: [p0.x, p0.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 0.0],
+                    uv: [atlas_entry.uv[0], atlas_entry.uv[1]],
                 },
                 Vertex {
                     pos: [p2.x, p2.y],
                     col: [c.r, c.g, c.b],
-                    uv: [0.0, 1.0],
+                    uv: [atlas_entry.uv[0], atlas_entry.uv[3]],
                 },
                 Vertex {
                     pos: [p3.x, p3.y],
                     col: [c.r, c.g, c.b],
-                    uv: [1.0, 1.0],
+                    uv: [atlas_entry.uv[2], atlas_entry.uv[3]],
                 },
                 Vertex {
                     pos: [p1.x, p1.y],
                     col: [c.r, c.g, c.b],
-                    uv: [1.0, 0.0],
+                    uv: [atlas_entry.uv[2], atlas_entry.uv[1]],
                 },
             ],
             &[0, 1, 2, 2, 3, 0],

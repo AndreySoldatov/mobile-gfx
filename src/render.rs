@@ -1,3 +1,4 @@
+use image::{Rgba, RgbaImage};
 use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{
@@ -7,6 +8,10 @@ use crate::{
     color::{Color, srgb_to_linear},
     wgpu_state::WgpuState,
 };
+
+pub(crate) struct SystemAtlasRegions {
+    pub(crate) white_pixel: usize,
+}
 
 pub struct RenderState {
     pub(crate) pipeline: wgpu::RenderPipeline,
@@ -20,6 +25,7 @@ pub struct RenderState {
     pub(crate) index_buffer: Buffer<u32>,
     pub(crate) clear_color: wgpu::Color,
     pub(crate) atlas: Atlas,
+    pub(crate) system_atlas_regions: SystemAtlasRegions,
 }
 
 #[repr(C)]
@@ -62,12 +68,30 @@ pub struct VertexUniform {
     screen_size: [f32; 2],
 }
 
+pub(crate) fn white_pixel() -> RgbaImage {
+    let mut pixel = RgbaImage::new(1, 1);
+    pixel.put_pixel(0, 0, Rgba([255, 255, 255, 255]));
+    pixel
+}
+
+fn push_system_atlas_regions(mut images: Vec<RgbaImage>) -> (Vec<RgbaImage>, SystemAtlasRegions) {
+    let system_regions = SystemAtlasRegions {
+        white_pixel: images.len(),
+    };
+    images.push(white_pixel());
+    (images, system_regions)
+}
+
 impl RenderState {
     pub(crate) fn new(
         wgpu_state: &WgpuState,
         config: &wgpu::SurfaceConfiguration,
         pixel_size: (u32, u32),
+        sprites: Vec<RgbaImage>,
     ) -> Self {
+        let (sprites, system_atlas_regions) = push_system_atlas_regions(sprites);
+        let atlas = Atlas::new(&wgpu_state, &sprites);
+
         let shader = wgpu_state
             .device
             .create_shader_module(include_wgsl!("shaders/uber.wgsl"));
@@ -112,8 +136,6 @@ impl RenderState {
                     resource: vertex_uniform_buffer.as_entire_binding(),
                 }],
             });
-
-        let atlas = Atlas::new(&wgpu_state);
 
         let render_pipeline_layout =
             wgpu_state
@@ -189,6 +211,7 @@ impl RenderState {
 
             clear_color: wgpu::Color::BLACK,
             atlas,
+            system_atlas_regions,
         }
     }
 

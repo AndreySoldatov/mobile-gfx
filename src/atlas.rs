@@ -1,19 +1,98 @@
+use std::collections::HashMap;
+
+use anyhow::bail;
+use image::RgbaImage;
+
 use crate::wgpu_state::WgpuState;
 
+#[allow(dead_code)]
 pub struct Atlas {
     pub(crate) bgl: wgpu::BindGroupLayout,
     pub(crate) bg: wgpu::BindGroup,
     pub(crate) texture: wgpu::Texture,
     pub(crate) view: wgpu::TextureView,
     pub(crate) sampler: wgpu::Sampler,
+    pub(crate) entries: HashMap<usize, AtlasRegion>,
 }
 
-impl Atlas {
-    pub fn new(wgpu_state: &WgpuState) -> Self {
-        let atlas = image::load_from_memory(include_bytes!("bin/assets/cat-dithered.png"))
-            .unwrap()
-            .to_rgba8();
+#[allow(dead_code)]
+pub(crate) struct URect {
+    pub(crate) t: u32,
+    pub(crate) l: u32,
+    pub(crate) w: u32,
+    pub(crate) h: u32,
+}
 
+pub(crate) struct AtlasRegion {
+    pub(crate) uv: [f32; 4],
+    pub(crate) px: URect,
+}
+
+fn pack_images(
+    images: &Vec<RgbaImage>,
+    size: u32,
+) -> anyhow::Result<(RgbaImage, HashMap<usize, AtlasRegion>)> {
+    let mut pairs: Vec<(usize, u32, u32)> = images
+        .iter()
+        .enumerate()
+        .map(|(k, i)| (k, i.width(), i.height()))
+        .collect();
+    pairs.sort_by_key(|(_, _, h)| std::cmp::Reverse(*h));
+
+    let mut atlas = RgbaImage::new(size, size);
+    let mut regions = HashMap::new();
+
+    let mut current_height: u32 = 0;
+    let mut current_width: u32 = 0;
+    for (k, w, h) in pairs {
+        if current_width + w > size {
+            current_height += h;
+            if current_height > size {
+                bail!(
+                    "Combined height of the input images {} is bigger than atlas height {}",
+                    current_height,
+                    size
+                );
+            }
+            current_width = 0;
+        }
+        image::imageops::overlay(
+            &mut atlas,
+            &images[k],
+            current_width as i64,
+            current_height as i64,
+        );
+        regions.insert(
+            k,
+            AtlasRegion {
+                uv: [
+                    current_width as f32 / size as f32,
+                    current_height as f32 / size as f32,
+                    (current_width + w) as f32 / size as f32,
+                    (current_height + h) as f32 / size as f32,
+                ],
+                px: URect {
+                    t: current_height,
+                    l: current_width,
+                    w,
+                    h,
+                },
+            },
+        );
+        current_width += w;
+    }
+
+    Ok((atlas, regions))
+}
+
+const SIZE_CLASSES: [u32; 8] = [64, 128, 256, 512, 1024, 2048, 4096, 8192];
+
+impl Atlas {
+    pub fn new(wgpu_state: &WgpuState, images: &Vec<RgbaImage>) -> Self {
+        let (atlas, entries) = SIZE_CLASSES
+            .iter()
+            .find_map(|size_class| pack_images(images, *size_class).ok())
+            .unwrap();
         let (width, height) = (atlas.width(), atlas.height());
 
         let size = wgpu::Extent3d {
@@ -105,6 +184,7 @@ impl Atlas {
             sampler: atlas_sampler,
             bgl: atlas_bgl,
             bg: atlas_bg,
+            entries,
         }
     }
 }

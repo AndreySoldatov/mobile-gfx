@@ -5,9 +5,9 @@
 # NOTE: these are absolute, machine-specific paths.
 
 [env]
-CXX_aarch64_linux_android = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang++.cmd"
-CC_aarch64_linux_android = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang.cmd"
-AR_aarch64_linux_android = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+CXX_aarch64_linux_android = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang++.cmd"
+CC_aarch64_linux_android = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang.cmd"
+AR_aarch64_linux_android = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
 
 [target.aarch64-linux-android]
-linker = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang.cmd"
+linker = "C:/Users/andrey/AppData/Local/Android/Sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android24-clang.cmd"

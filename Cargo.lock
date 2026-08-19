@@ -1339,6 +1339,8 @@ dependencies = [
  "pollster",
  "rand 0.10.2",
  "raw-window-handle",
+ "slotmap",
+ "thiserror 2.0.20",
  "tracing",
  "wgpu",
  "winit",

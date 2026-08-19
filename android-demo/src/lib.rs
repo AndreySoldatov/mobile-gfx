@@ -10,7 +10,7 @@ use mobile_gfx::app;
 use mobile_gfx::{
     color::Color,
     render,
-    user_state::{CreationContext, UserState},
+    user_state::{CreationContext, Image, UserState},
 };
 #[cfg(target_os = "android")]
 use winit::{
@@ -24,23 +24,21 @@ struct MyState {
     time: f32,
     fps_window: VecDeque<f32>,
     frame: u32,
+    cat: Image,
 }
 
-impl MyState {
-    fn new() -> Self {
+impl UserState for MyState {
+    fn create(cc: &mut CreationContext) -> Self {
+        cc.set_scale(4);
+        let image = cc.load_image("src/bin/assets/cat-dithered.png").unwrap();
         Self {
             clock: std::time::Instant::now(),
             dt: 0.0,
             time: 0.0,
-            fps_window: VecDeque::new(),
             frame: 0,
+            fps_window: VecDeque::new(),
+            cat: image,
         }
-    }
-}
-
-impl UserState for MyState {
-    fn on_create(&self) -> CreationContext {
-        CreationContext { scale: 6 }
     }
     fn update(&mut self) {
         self.frame += 1;
@@ -82,8 +80,6 @@ impl UserState for MyState {
         painter.draw_line(Vec2::new(0.0, 0.0), Vec2::new(w, h), 1.0, Color::WHITE);
         painter.draw_line(Vec2::new(40.0, 0.0), Vec2::new(40.0, h), 1.0, Color::WHITE);
         painter.draw_line(Vec2::new(0.0, 40.0), Vec2::new(w, 40.0), 1.0, Color::WHITE);
-
-        painter.draw_sprite(Vec2::new(20.0, 20.0), "", Color::WHITE);
     }
 }
 
@@ -103,6 +99,6 @@ fn android_main(app: AndroidApp) {
         .build()
         .unwrap();
 
-    let mut app = app::App::new(Box::new(MyState::new()));
+    let mut app = app::App::<MyState>::new();
     event_loop.run_app(&mut app).unwrap();
 }
