@@ -77,7 +77,7 @@ impl Blit {
             label: Some("Blit bg"),
         });
 
-        let shader_module = device.create_shader_module(include_wgsl!("shaders/blit.wgsl"));
+        let shader_module = device.create_shader_module(include_wgsl!("assets/shaders/blit.wgsl"));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blit pl"),
             bind_group_layouts: &[Some(&bgl)],

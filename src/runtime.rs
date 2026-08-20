@@ -5,8 +5,8 @@ use winit::{dpi::PhysicalSize, window::Window};
 use crate::{
     error_manager::pop_error,
     render::RenderState,
-    user_state::{CreationContext, UserState},
     wgpu_state::{WgpuState, WgpuSurface, create_wgpu_surface, wgpu_init},
+    {CreationContext, UserState},
 };
 
 pub(crate) struct Runtime<U: UserState> {
@@ -46,7 +46,7 @@ impl<U: UserState> Runtime<U> {
                 surface.config.width / cc.scale,
                 surface.config.height / cc.scale,
             ),
-            cc.sprites,
+            &mut cc.atlas_staging,
         );
         Self {
             wgpu_state,

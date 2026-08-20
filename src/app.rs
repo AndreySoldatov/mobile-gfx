@@ -1,4 +1,4 @@
-use crate::{runtime::Runtime, user_state::UserState};
+use crate::{UserState, runtime::Runtime};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::ControlFlow};
 
 pub struct App<U: UserState> {

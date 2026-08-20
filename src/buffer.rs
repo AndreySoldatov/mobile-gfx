@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-pub struct Buffer<T: bytemuck::Pod + bytemuck::Zeroable> {
+pub(crate) struct Buffer<T: bytemuck::Pod + bytemuck::Zeroable> {
     buf: wgpu::Buffer,
     cap: u64,
     len: u64,
@@ -17,7 +17,7 @@ const fn align_up(x: u64, a: u64) -> u64 {
 }
 
 impl<T: bytemuck::Pod + bytemuck::Zeroable> Buffer<T> {
-    pub fn new(usage: wgpu::BufferUsages, device: &wgpu::Device, label: &str) -> Self {
+    pub(crate) fn new(usage: wgpu::BufferUsages, device: &wgpu::Device, label: &str) -> Self {
         let usage = usage | wgpu::BufferUsages::COPY_DST;
         Self {
             buf: device.create_buffer(&wgpu::BufferDescriptor {
@@ -34,7 +34,7 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable> Buffer<T> {
         }
     }
 
-    pub fn write(&mut self, data: &[T], queue: &wgpu::Queue, device: &wgpu::Device) {
+    pub(crate) fn write(&mut self, data: &[T], queue: &wgpu::Queue, device: &wgpu::Device) {
         let size = data.len() as u64;
         self.len = size;
         if size > self.cap {
@@ -51,15 +51,16 @@ impl<T: bytemuck::Pod + bytemuck::Zeroable> Buffer<T> {
         queue.write_buffer(&self.buf, 0, bytemuck::cast_slice(data));
     }
 
-    pub fn length(&self) -> u64 {
+    pub(crate) fn length(&self) -> u64 {
         self.len
     }
 
-    pub fn capacity(&self) -> u64 {
+    #[allow(dead_code)]
+    pub(crate) fn capacity(&self) -> u64 {
         self.cap
     }
 
-    pub fn slice(&self) -> wgpu::BufferSlice<'_> {
+    pub(crate) fn slice(&self) -> wgpu::BufferSlice<'_> {
         self.buf
             .slice(..(self.length() * std::mem::size_of::<T>() as u64))
     }

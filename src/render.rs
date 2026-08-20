@@ -1,17 +1,15 @@
 use image::{Rgba, RgbaImage};
+use slotmap::SlotMap;
 use wgpu::{include_wgsl, util::DeviceExt};
 
 use crate::{
-    atlas::Atlas,
+    atlas::{Atlas, AtlasKey},
     blit::Blit,
     buffer::Buffer,
     color::{Color, srgb_to_linear},
+    font::Font,
     wgpu_state::WgpuState,
 };
-
-pub(crate) struct SystemAtlasRegions {
-    pub(crate) white_pixel: usize,
-}
 
 pub struct RenderState {
     pub(crate) pipeline: wgpu::RenderPipeline,
@@ -25,7 +23,8 @@ pub struct RenderState {
     pub(crate) index_buffer: Buffer<u32>,
     pub(crate) clear_color: wgpu::Color,
     pub(crate) atlas: Atlas,
-    pub(crate) system_atlas_regions: SystemAtlasRegions,
+    pub(crate) white_pixel: AtlasKey,
+    pub(crate) system_font: Font,
 }
 
 #[repr(C)]
@@ -74,27 +73,22 @@ pub(crate) fn white_pixel() -> RgbaImage {
     pixel
 }
 
-fn push_system_atlas_regions(mut images: Vec<RgbaImage>) -> (Vec<RgbaImage>, SystemAtlasRegions) {
-    let system_regions = SystemAtlasRegions {
-        white_pixel: images.len(),
-    };
-    images.push(white_pixel());
-    (images, system_regions)
-}
-
 impl RenderState {
     pub(crate) fn new(
         wgpu_state: &WgpuState,
         config: &wgpu::SurfaceConfiguration,
         pixel_size: (u32, u32),
-        sprites: Vec<RgbaImage>,
+        atlas_staging: &mut SlotMap<AtlasKey, RgbaImage>,
     ) -> Self {
-        let (sprites, system_atlas_regions) = push_system_atlas_regions(sprites);
-        let atlas = Atlas::new(&wgpu_state, &sprites);
+        let white_pixel = atlas_staging.insert(white_pixel());
+        let system_font =
+            Font::load_from_bdf(atlas_staging, include_str!("assets/fonts/cherry-10-r.bdf"))
+                .unwrap();
+        let atlas = Atlas::new(&wgpu_state, &atlas_staging);
 
         let shader = wgpu_state
             .device
-            .create_shader_module(include_wgsl!("shaders/uber.wgsl"));
+            .create_shader_module(include_wgsl!("assets/shaders/uber.wgsl"));
 
         let vert_uni = VertexUniform {
             screen_size: [pixel_size.0 as f32, pixel_size.1 as f32],
@@ -162,7 +156,7 @@ impl RenderState {
                     entry_point: Some("fs_main"),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: config.format.clone(),
-                        blend: Some(wgpu::BlendState::REPLACE),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                     compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -211,7 +205,8 @@ impl RenderState {
 
             clear_color: wgpu::Color::BLACK,
             atlas,
-            system_atlas_regions,
+            white_pixel,
+            system_font,
         }
     }
 

@@ -1,9 +1,10 @@
-use std::collections::HashMap;
-
 use anyhow::bail;
 use image::RgbaImage;
+use slotmap::{SecondaryMap, SlotMap, new_key_type};
 
 use crate::wgpu_state::WgpuState;
+
+new_key_type! { pub(crate) struct AtlasKey; }
 
 #[allow(dead_code)]
 pub struct Atlas {
@@ -12,10 +13,11 @@ pub struct Atlas {
     pub(crate) texture: wgpu::Texture,
     pub(crate) view: wgpu::TextureView,
     pub(crate) sampler: wgpu::Sampler,
-    pub(crate) entries: HashMap<usize, AtlasRegion>,
+    entries: SecondaryMap<AtlasKey, AtlasRegion>,
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 pub(crate) struct URect {
     pub(crate) t: u32,
     pub(crate) l: u32,
@@ -23,28 +25,28 @@ pub(crate) struct URect {
     pub(crate) h: u32,
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct AtlasRegion {
     pub(crate) uv: [f32; 4],
     pub(crate) px: URect,
 }
 
 fn pack_images(
-    images: &Vec<RgbaImage>,
+    atlas_staging: &SlotMap<AtlasKey, RgbaImage>,
     size: u32,
-) -> anyhow::Result<(RgbaImage, HashMap<usize, AtlasRegion>)> {
-    let mut pairs: Vec<(usize, u32, u32)> = images
+) -> anyhow::Result<(RgbaImage, SecondaryMap<AtlasKey, AtlasRegion>)> {
+    let mut pairs: Vec<(AtlasKey, u32, u32)> = atlas_staging
         .iter()
-        .enumerate()
         .map(|(k, i)| (k, i.width(), i.height()))
         .collect();
     pairs.sort_by_key(|(_, _, h)| std::cmp::Reverse(*h));
 
     let mut atlas = RgbaImage::new(size, size);
-    let mut regions = HashMap::new();
+    let mut regions = SecondaryMap::new();
 
     let mut current_height: u32 = 0;
     let mut current_width: u32 = 0;
-    let mut height_step = images[pairs[0].0].height();
+    let mut height_step = atlas_staging[pairs[0].0].height();
     for (k, w, h) in pairs {
         if current_width + w > size {
             current_height += height_step;
@@ -60,7 +62,7 @@ fn pack_images(
         }
         image::imageops::overlay(
             &mut atlas,
-            &images[k],
+            &atlas_staging[k],
             current_width as i64,
             current_height as i64,
         );
@@ -90,10 +92,10 @@ fn pack_images(
 const SIZE_CLASSES: [u32; 8] = [64, 128, 256, 512, 1024, 2048, 4096, 8192];
 
 impl Atlas {
-    pub fn new(wgpu_state: &WgpuState, images: &Vec<RgbaImage>) -> Self {
+    pub fn new(wgpu_state: &WgpuState, atlas_staging: &SlotMap<AtlasKey, RgbaImage>) -> Self {
         let (atlas, entries) = SIZE_CLASSES
             .iter()
-            .find_map(|size_class| pack_images(images, *size_class).ok())
+            .find_map(|size_class| pack_images(atlas_staging, *size_class).ok())
             .unwrap();
         let (width, height) = (atlas.width(), atlas.height());
 
@@ -188,5 +190,9 @@ impl Atlas {
             bg: atlas_bg,
             entries,
         }
+    }
+
+    pub(crate) fn entry(&self, key: AtlasKey) -> AtlasRegion {
+        self.entries[key]
     }
 }

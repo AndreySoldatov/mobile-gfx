@@ -5,8 +5,7 @@ use glam::{Mat2, Vec2};
 use mobile_gfx::app;
 use mobile_gfx::{
     color::Color,
-    render,
-    user_state::{SpriteKey, UserState},
+    render, {SpriteKey, UserState},
 };
 #[cfg(not(target_os = "android"))]
 use winit::event_loop::EventLoop;
@@ -21,8 +20,8 @@ struct MyState {
 }
 
 impl UserState for MyState {
-    fn create(cc: &mut mobile_gfx::user_state::CreationContext) -> Self {
-        cc.set_scale(3);
+    fn create(cc: &mut mobile_gfx::CreationContext) -> Self {
+        cc.set_scale(2);
 
         let cat = image::load_from_memory(include_bytes!("assets/cat-dithered.png"))
             .unwrap()
@@ -89,7 +88,7 @@ impl UserState for MyState {
             Color::WHITE,
         );
 
-        painter.draw_sprite(Vec2::new(w - 160.0, 0.0), self.girl, Color::WHITE);
+        painter.draw_text("Hello, world", Vec2 { x: 10.0, y: 200.0 }, Color::GREEN);
     }
 }
 
