@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
+use glam::Vec2;
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
+    CreationContext, RuntimeContext, UserState,
     error_manager::pop_error,
+    input::InputState,
     render::RenderState,
     wgpu_state::{WgpuState, WgpuSurface, create_wgpu_surface, wgpu_init},
-    {CreationContext, UserState},
 };
 
 pub(crate) struct Runtime<U: UserState> {
@@ -15,7 +17,9 @@ pub(crate) struct Runtime<U: UserState> {
     pub(crate) wgpu_state: WgpuState,
     pub(crate) render_state: RenderState,
     pub(crate) user_state: U,
+    pub(crate) ctx: RuntimeContext,
     pub(crate) scale: u32,
+    pub(crate) input: InputState,
 }
 
 impl<U: UserState> Runtime<U> {
@@ -35,27 +39,40 @@ impl<U: UserState> Runtime<U> {
         );
 
         let mut cc = CreationContext::default();
+        cc.physical_size = Vec2::new(
+            window.inner_size().width as f32,
+            window.inner_size().height as f32,
+        );
         let user_state = U::create(&mut cc);
 
         let (wgpu_state, surface) = wgpu_init(window.clone()).unwrap();
 
+        let pixel_size = (
+            surface.config.width / cc.scale,
+            surface.config.height / cc.scale,
+        );
         let render_state = RenderState::new(
             &wgpu_state,
             &surface.config,
-            (
-                surface.config.width / cc.scale,
-                surface.config.height / cc.scale,
-            ),
+            pixel_size,
             &mut cc.atlas_staging,
+        );
+        let input = InputState::new(
+            Vec2::new(surface.config.width as f32, surface.config.height as f32),
+            Vec2::new(pixel_size.0 as f32, pixel_size.1 as f32),
         );
         Self {
             wgpu_state,
             surface: Some(surface),
             window,
             render_state,
-
             user_state,
             scale: cc.scale,
+            ctx: RuntimeContext {
+                width: pixel_size.0 as f32,
+                height: pixel_size.1 as f32,
+            },
+            input,
         }
     }
 
@@ -79,8 +96,8 @@ impl<U: UserState> Runtime<U> {
             return;
         };
 
-        self.user_state.update();
-        self.user_state.draw(&mut self.render_state);
+        self.user_state.update(&self.input, &self.ctx);
+        self.user_state.draw(&mut self.render_state, &self.ctx);
 
         while let Some(error) = pop_error() {
             self.user_state.on_error(error);
@@ -143,11 +160,19 @@ impl<U: UserState> Runtime<U> {
         surface
             .surface
             .configure(&self.wgpu_state.device, &surface.config);
+        let new_pixel_size = (s.width / self.scale, s.height / self.scale);
+
+        self.input.resize(
+            Vec2::new(surface.config.width as f32, surface.config.height as f32),
+            Vec2::new(self.ctx.width, self.ctx.height),
+        );
         self.render_state.resize(
-            (s.width / self.scale, s.height / self.scale),
+            new_pixel_size,
             &self.wgpu_state,
             self.surface.as_ref().unwrap().config.format,
         );
+        self.ctx.width = new_pixel_size.0 as f32;
+        self.ctx.height = new_pixel_size.1 as f32;
 
         self.window.request_redraw();
     }

@@ -293,18 +293,6 @@ impl RenderState {
         self.vertices.extend_from_slice(verts);
     }
 
-    pub fn pixel_size(&self) -> (u32, u32) {
-        self.pixel_size
-    }
-
-    pub fn width(&self) -> f32 {
-        self.pixel_size.0 as f32
-    }
-
-    pub fn height(&self) -> f32 {
-        self.pixel_size.1 as f32
-    }
-
     pub fn clear_color(&mut self, color: Color) {
         let color = srgb_to_linear(color);
 

@@ -1,13 +1,22 @@
 use crate::{UserState, runtime::Runtime};
-use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::ControlFlow};
+use glam::Vec2;
+use winit::{
+    application::ApplicationHandler,
+    event::{MouseButton, WindowEvent},
+    event_loop::ControlFlow,
+};
 
 pub struct App<U: UserState> {
     runtime: Option<Runtime<U>>,
+    cursor_pos: Vec2,
 }
 
 impl<U: UserState> App<U> {
     pub fn new() -> Self {
-        Self { runtime: None }
+        Self {
+            runtime: None,
+            cursor_pos: Vec2::ZERO,
+        }
     }
 }
 
@@ -51,6 +60,35 @@ impl<U: UserState> ApplicationHandler for App<U> {
                 }
                 if let Some(runtime) = &mut self.runtime {
                     runtime.resize(size);
+                }
+            }
+            WindowEvent::Touch(touch) => {
+                if let Some(runtime) = &mut self.runtime {
+                    runtime.input.touch_event(touch);
+                }
+            }
+            WindowEvent::MouseInput {
+                device_id: _d,
+                state,
+                button,
+            } => {
+                if button != MouseButton::Left {
+                    return;
+                }
+                if let Some(runtime) = &mut self.runtime {
+                    if button != MouseButton::Left {
+                        return;
+                    }
+                    runtime.input.mouse_event(self.cursor_pos, state);
+                }
+            }
+            WindowEvent::CursorMoved {
+                device_id: _d,
+                position,
+            } => {
+                self.cursor_pos = Vec2::new(position.x as f32, position.y as f32);
+                if let Some(runtime) = &mut self.runtime {
+                    runtime.input.mouse_moved(self.cursor_pos);
                 }
             }
             _ => {}

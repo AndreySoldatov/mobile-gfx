@@ -47,6 +47,30 @@ impl Color {
         g: 1.0,
         b: 0.2,
     };
+
+    pub const BLUE: Color = Color {
+        r: 0.15,
+        g: 0.3,
+        b: 1.0,
+    };
+
+    pub const YELLOW: Color = Color {
+        r: 1.0,
+        g: 0.9,
+        b: 0.15,
+    };
+
+    pub const ORANGE: Color = Color {
+        r: 1.0,
+        g: 0.45,
+        b: 0.05,
+    };
+
+    pub const PURPLE: Color = Color {
+        r: 0.5,
+        g: 0.2,
+        b: 1.0,
+    };
 }
 
 pub fn srgb_to_linear_channel(c: f32) -> f32 {
