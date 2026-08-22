@@ -50,6 +50,7 @@ impl InputState {
     }
 
     pub(crate) fn mouse_moved(&mut self, cursor_pos: Vec2) {
+        let cursor_pos = self.rescale_size(cursor_pos);
         self.table.entry(MOUSE_ID).and_modify(|v| *v = cursor_pos);
     }
 

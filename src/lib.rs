@@ -42,7 +42,21 @@ pub struct CreationContext {
 }
 
 #[derive(Clone, Copy)]
-pub struct SpriteKey(pub(crate) AtlasKey);
+pub struct SpriteKey {
+    pub(crate) atlas_key: AtlasKey,
+    width: u32,
+    height: u32,
+}
+
+impl SpriteKey {
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+}
 
 impl Default for CreationContext {
     fn default() -> Self {
@@ -61,7 +75,11 @@ impl CreationContext {
     }
 
     pub fn load_image(&mut self, image: RgbaImage) -> SpriteKey {
-        SpriteKey(self.atlas_staging.insert(image))
+        SpriteKey {
+            width: image.width(),
+            height: image.height(),
+            atlas_key: self.atlas_staging.insert(image),
+        }
     }
 
     pub fn physical_size(&self) -> Vec2 {

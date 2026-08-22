@@ -6,6 +6,8 @@ use crate::{
 };
 use glam::Vec2;
 
+const EPS: f32 = 0.001;
+
 impl RenderState {
     pub fn white_pixel(&self) -> [f32; 2] {
         self.atlas.entry(self.white_pixel).uv[..2]
@@ -116,8 +118,133 @@ impl RenderState {
         );
     }
 
-    pub fn draw_sprite(&mut self, pos: Vec2, image: SpriteKey, c: Color) {
-        let atlas_entry = self.atlas.entry(image.0);
-        self.draw_atlas_entry(pos, atlas_entry, c);
+    pub fn draw_sprite(&mut self, pos: Vec2, sprite: SpriteKey) {
+        let atlas_entry = self.atlas.entry(sprite.atlas_key);
+        self.draw_atlas_entry(pos, atlas_entry, Color::WHITE);
+    }
+
+    pub fn draw_sprite_ex(&mut self, pos: Vec2, sprite: SpriteKey, params: DrawSpriteParams) {
+        let dims = match params.size {
+            Size::Dimentions(size) => size,
+            Size::Scale(scale) => Vec2::new(
+                sprite.width() as f32 * scale,
+                sprite.height() as f32 * scale,
+            ),
+        };
+        let mut p0 = Vec2::new(
+            match params.alignment.hor {
+                HorizontalAlignment::Left => 0.0,
+                HorizontalAlignment::Center => -dims.x * 0.5,
+                HorizontalAlignment::Right => -dims.x,
+            },
+            match params.alignment.ver {
+                VerticalAlignment::Top => 0.0,
+                VerticalAlignment::Center => -dims.y * 0.5,
+                VerticalAlignment::Bottom => -dims.y,
+            },
+        );
+        let mut p1 = p0 + Vec2::X * dims;
+        let mut p2 = p0 + Vec2::Y * dims;
+        let mut p3 = p0 + dims;
+
+        if params.angle > EPS {
+            p0 = p0.rotate_angle(params.angle);
+            p1 = p1.rotate_angle(params.angle);
+            p2 = p2.rotate_angle(params.angle);
+            p3 = p3.rotate_angle(params.angle);
+        }
+
+        p0 += pos;
+        p1 += pos;
+        p2 += pos;
+        p3 += pos;
+
+        let atlas_entry = self.atlas.entry(sprite.atlas_key);
+
+        self.append_vertices(
+            &[
+                Vertex {
+                    pos: [p0.x, p0.y],
+                    col: [params.tint.r, params.tint.g, params.tint.b],
+                    uv: [atlas_entry.uv[0], atlas_entry.uv[1]],
+                },
+                Vertex {
+                    pos: [p1.x, p1.y],
+                    col: [params.tint.r, params.tint.g, params.tint.b],
+                    uv: [atlas_entry.uv[2], atlas_entry.uv[1]],
+                },
+                Vertex {
+                    pos: [p2.x, p2.y],
+                    col: [params.tint.r, params.tint.g, params.tint.b],
+                    uv: [atlas_entry.uv[0], atlas_entry.uv[3]],
+                },
+                Vertex {
+                    pos: [p3.x, p3.y],
+                    col: [params.tint.r, params.tint.g, params.tint.b],
+                    uv: [atlas_entry.uv[2], atlas_entry.uv[3]],
+                },
+            ],
+            &[0, 3, 2, 0, 1, 3],
+        );
+    }
+}
+
+pub enum HorizontalAlignment {
+    Left,
+    Center,
+    Right,
+}
+
+impl Default for HorizontalAlignment {
+    fn default() -> Self {
+        Self::Left
+    }
+}
+
+pub enum VerticalAlignment {
+    Top,
+    Center,
+    Bottom,
+}
+
+impl Default for VerticalAlignment {
+    fn default() -> Self {
+        Self::Top
+    }
+}
+
+#[derive(Default)]
+pub struct Alignment {
+    pub hor: HorizontalAlignment,
+    pub ver: VerticalAlignment,
+}
+
+impl Alignment {
+    pub const CENTER: Alignment = Alignment {
+        hor: HorizontalAlignment::Center,
+        ver: VerticalAlignment::Center,
+    };
+}
+
+pub enum Size {
+    Dimentions(Vec2),
+    Scale(f32),
+}
+
+pub struct DrawSpriteParams {
+    pub tint: Color,
+    pub angle: f32,
+    pub size: Size,
+    pub alignment: Alignment,
+}
+
+impl Default for DrawSpriteParams {
+    fn default() -> Self {
+        Self {
+            tint: Color::WHITE,
+            angle: 0.0,
+            size: Size::Scale(1.0),
+            alignment: Alignment::default(),
+        }
     }
 }

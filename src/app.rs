@@ -1,4 +1,4 @@
-use crate::{UserState, runtime::Runtime};
+use crate::{runtime::Runtime, UserState};
 use glam::Vec2;
 use winit::{
     application::ApplicationHandler,

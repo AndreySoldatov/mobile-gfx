@@ -54,6 +54,12 @@ impl Color {
         b: 1.0,
     };
 
+    pub const LIGHT_BLUE: Color = Color {
+        r: 0.25,
+        g: 0.6,
+        b: 1.0,
+    };
+
     pub const YELLOW: Color = Color {
         r: 1.0,
         g: 0.9,
