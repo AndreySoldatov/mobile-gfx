@@ -1,3 +1,6 @@
+override screen_width: f32 = 180.0;
+override screen_height: f32 = 320.0;
+
 fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
     let cutoff = c < vec3<f32>(0.0031308);
     let lo = c * 12.92;
@@ -24,12 +27,6 @@ struct VertexOutput {
     @location(1) col: vec3<f32>,
 };
 
-struct VertexUniform {
-    screen_size: vec2<f32>,
-};
-@group(0) @binding(0)
-var<uniform> uni: VertexUniform;
-
 @vertex
 fn vs_main(
     model: VertexInput,
@@ -37,16 +34,16 @@ fn vs_main(
     var out: VertexOutput;
     out.uv = model.uv;
     out.col = srgb_to_linear(model.col);
-    var clip_pos = (model.pos / uni.screen_size);
+    var clip_pos = (model.pos / vec2(screen_width, screen_height));
     clip_pos.y = 1.0 - clip_pos.y;
     clip_pos = clip_pos * 2.0 - 1.0;
     out.clip_pos = vec4<f32>(clip_pos, 0.0, 1.0);
     return out;
 }
 
-@group(1) @binding(0)
+@group(0) @binding(0)
 var atlas: texture_2d<f32>;
-@group(1) @binding(1)
+@group(0) @binding(1)
 var atlas_sampler: sampler;
 
 @fragment

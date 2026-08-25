@@ -1,24 +1,22 @@
+use glam::Vec2;
 use wgpu::include_wgsl;
 
+use crate::utils::integer_fit;
+
 pub struct Blit {
-    pub pixel_size: (u32, u32),
-
-    pub texture: wgpu::Texture,
+    pub pixel_size: Vec2,
     pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
-
     pub pipeline: wgpu::RenderPipeline,
     pub bg: wgpu::BindGroup,
-    pub bgl: wgpu::BindGroupLayout,
 }
 
 impl Blit {
-    pub fn new(device: &wgpu::Device, pixel_size: (u32, u32), format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, pixel_size: Vec2, format: wgpu::TextureFormat) -> Self {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("blit texute"),
             size: wgpu::Extent3d {
-                width: pixel_size.0,
-                height: pixel_size.1,
+                width: pixel_size.x as u32,
+                height: pixel_size.y as u32,
                 ..Default::default()
             },
             mip_level_count: 1,
@@ -123,69 +121,10 @@ impl Blit {
 
         return Self {
             pixel_size,
-            sampler,
-            texture,
             view,
             bg,
-            bgl,
             pipeline,
         };
-    }
-
-    pub fn integer_fit(&self, sw: u32, sh: u32) -> (f32, f32, f32, f32) {
-        let scale = (sw / self.pixel_size.0).min(sh / self.pixel_size.1).max(1);
-        let (w, h) = (self.pixel_size.0 * scale, self.pixel_size.1 * scale);
-        (
-            ((sw - w) / 2) as f32,
-            ((sh - h) / 2) as f32,
-            w as f32,
-            h as f32,
-        )
-    }
-
-    pub fn resize(
-        &mut self,
-        new_pixel_size: (u32, u32),
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
-    ) {
-        if new_pixel_size == self.pixel_size {
-            return;
-        }
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("blit texute"),
-            size: wgpu::Extent3d {
-                width: new_pixel_size.0,
-                height: new_pixel_size.1,
-                ..Default::default()
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.bgl,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
-                },
-            ],
-            label: Some("Blit bg"),
-        });
-
-        self.texture = texture;
-        self.view = view;
-        self.bg = bg;
-        self.pixel_size = new_pixel_size;
     }
 
     pub fn render(
@@ -209,8 +148,11 @@ impl Blit {
             ..Default::default()
         });
 
-        let (x, y, w, h) = self.integer_fit(config.width, config.height);
-        blit_pass.set_viewport(x, y, w, h, 0.0, 1.0);
+        let rect = integer_fit(
+            Vec2::new(config.width as f32, config.height as f32),
+            self.pixel_size,
+        );
+        blit_pass.set_viewport(rect.tl.x, rect.tl.y, rect.wh.x, rect.wh.y, 0.0, 1.0);
         blit_pass.set_pipeline(&self.pipeline);
         blit_pass.set_bind_group(0, &self.bg, &[]);
         blit_pass.draw(0..3, 0..1);

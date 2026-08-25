@@ -4,8 +4,7 @@ use glam::Vec2;
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
-    CreationContext, RuntimeContext, UserState,
-    error_manager::pop_error,
+    CreationContext, FrameContext, RuntimeContext, UserState,
     input::InputState,
     render::RenderState,
     wgpu_state::{WgpuState, WgpuSurface, create_wgpu_surface, wgpu_init},
@@ -17,8 +16,7 @@ pub(crate) struct Runtime<U: UserState> {
     pub(crate) wgpu_state: WgpuState,
     pub(crate) render_state: RenderState,
     pub(crate) user_state: U,
-    pub(crate) ctx: RuntimeContext,
-    pub(crate) scale: u32,
+    pub(crate) ctx: FrameContext,
     pub(crate) input: InputState,
 }
 
@@ -38,56 +36,39 @@ impl<U: UserState> Runtime<U> {
                 .unwrap(),
         );
 
-        let mut cc = CreationContext::default();
-        cc.physical_size = Vec2::new(
-            window.inner_size().width as f32,
-            window.inner_size().height as f32,
-        );
+        let (pw, ph) = (window.inner_size().width, window.inner_size().height);
+
+        let factor = if pw > ph { ph / 180 } else { pw / 180 };
+        let pixel_size = Vec2::new((pw / factor) as f32, (ph / factor) as f32);
+
+        let mut cc = CreationContext {
+            frame: FrameContext {
+                frame_size: pixel_size,
+            },
+            ..Default::default()
+        };
         let user_state = U::create(&mut cc);
 
         let (wgpu_state, surface) = wgpu_init(window.clone()).unwrap();
 
-        let pixel_size = (
-            surface.config.width / cc.scale,
-            surface.config.height / cc.scale,
-        );
         let render_state = RenderState::new(
             &wgpu_state,
             &surface.config,
             pixel_size,
             &mut cc.atlas_staging,
         );
-        let input = InputState::new(
-            Vec2::new(surface.config.width as f32, surface.config.height as f32),
-            Vec2::new(pixel_size.0 as f32, pixel_size.1 as f32),
-        );
+        let input = InputState::new(Vec2::new(pw as f32, ph as f32), pixel_size);
         Self {
             wgpu_state,
             surface: Some(surface),
             window,
             render_state,
             user_state,
-            scale: cc.scale,
-            ctx: RuntimeContext {
-                width: pixel_size.0 as f32,
-                height: pixel_size.1 as f32,
+            ctx: FrameContext {
+                frame_size: pixel_size,
             },
             input,
         }
-    }
-
-    pub(crate) fn create_surface(&mut self) {
-        self.issue_new_surface();
-        let surf = self.surface.as_ref().unwrap();
-        self.render_state.resize(
-            (
-                surf.config.width / self.scale,
-                surf.config.height / self.scale,
-            ),
-            &self.wgpu_state,
-            self.surface.as_ref().unwrap().config.format,
-        );
-        self.window.request_redraw();
     }
 
     pub(crate) fn update(&mut self) {
@@ -96,12 +77,12 @@ impl<U: UserState> Runtime<U> {
             return;
         };
 
-        self.user_state.update(&self.input, &self.ctx);
-        self.user_state.draw(&mut self.render_state, &self.ctx);
-
-        while let Some(error) = pop_error() {
-            self.user_state.on_error(error);
-        }
+        let fctx = RuntimeContext {
+            painter: &mut self.render_state,
+            input: &self.input,
+            frame: &self.ctx,
+        };
+        self.user_state.frame(fctx);
 
         let output = match surface.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
@@ -151,6 +132,11 @@ impl<U: UserState> Runtime<U> {
         self.surface = Some(create_wgpu_surface(&self.wgpu_state, self.window.clone()))
     }
 
+    pub(crate) fn create_surface(&mut self) {
+        self.issue_new_surface();
+        self.window.request_redraw();
+    }
+
     pub(crate) fn resize(&mut self, s: PhysicalSize<u32>) {
         let Some(surface) = &mut self.surface else {
             return;
@@ -160,20 +146,11 @@ impl<U: UserState> Runtime<U> {
         surface
             .surface
             .configure(&self.wgpu_state.device, &surface.config);
-        let new_pixel_size = (s.width / self.scale, s.height / self.scale);
 
-        self.input.resize(
-            Vec2::new(surface.config.width as f32, surface.config.height as f32),
-            Vec2::new(self.ctx.width, self.ctx.height),
-        );
-        self.render_state.resize(
-            new_pixel_size,
-            &self.wgpu_state,
-            self.surface.as_ref().unwrap().config.format,
-        );
-        self.ctx.width = new_pixel_size.0 as f32;
-        self.ctx.height = new_pixel_size.1 as f32;
-
+        self.input.resize(Vec2::new(
+            surface.config.width as f32,
+            surface.config.height as f32,
+        ));
         self.window.request_redraw();
     }
 }

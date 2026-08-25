@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use glam::Vec2;
 use mobile_gfx::{
-    SpriteKey, UserState,
+    RuntimeContext, SpriteKey, UserState,
     app::App,
     color::Color,
     shapes::{Alignment, DrawSpriteParams, Size::Scale},
@@ -11,6 +13,7 @@ struct MyState {
     test_image: SpriteKey,
     a: f32,
     last_frame: std::time::Instant,
+    touches: HashMap<u32, Vec2>,
 }
 
 impl UserState for MyState {
@@ -25,35 +28,41 @@ impl UserState for MyState {
             test_image,
             a: 0.0,
             last_frame: std::time::Instant::now(),
+            touches: HashMap::new(),
         }
     }
 
-    fn update(
-        &mut self,
-        _input: &mobile_gfx::input::InputState,
-        _ctx: &mobile_gfx::RuntimeContext,
-    ) {
+    fn frame(&mut self, ctx: RuntimeContext) {
+        let painter = ctx.painter;
+        let input = ctx.input;
+        let (width, height) = (ctx.frame.width(), ctx.frame.height());
+
         self.a += (std::time::Instant::now() - self.last_frame).as_secs_f32();
         self.last_frame = std::time::Instant::now();
-    }
 
-    fn draw(
-        &self,
-        painter: &mut mobile_gfx::render::RenderState,
-        ctx: &mobile_gfx::RuntimeContext,
-    ) {
+        self.touches = input.touch_map().clone();
+
+        painter.clear_color(Color::DARK_GRAY);
+
         painter.draw_line(
             Vec2::new(50.0, 0.0),
-            Vec2::new(50.0, ctx.height),
+            Vec2::new(50.0, height),
             1.0,
             Color::WHITE,
         );
         painter.draw_line(
             Vec2::new(0.0, 50.0),
-            Vec2::new(ctx.width, 50.0),
+            Vec2::new(width, 50.0),
             1.0,
             Color::WHITE,
         );
+        painter.draw_text("180px", Vec2::new(width - 26.0, 40.0), Color::WHITE);
+        painter.draw_text(
+            &format!("{}px", height),
+            Vec2::new(52.0, height - 12.0),
+            Color::WHITE,
+        );
+
         painter.draw_sprite_ex(
             Vec2::new(50.0, 50.0),
             self.test_image,
@@ -64,6 +73,15 @@ impl UserState for MyState {
                 ..Default::default()
             },
         );
+
+        for (id, pos) in &self.touches {
+            painter.draw_text(
+                &format!("id: {}", id),
+                pos - Vec2::ONE * 10.0 - Vec2::Y * 12.0,
+                Color::WHITE,
+            );
+            painter.draw_rect(pos - Vec2::ONE * 10.0, Vec2::ONE * 20.0, Color::YELLOW);
+        }
     }
 }
 

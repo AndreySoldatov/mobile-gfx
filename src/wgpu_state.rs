@@ -16,32 +16,17 @@ pub struct WgpuSurface {
 }
 
 pub fn wgpu_init(window: Arc<Window>) -> anyhow::Result<(WgpuState, WgpuSurface)> {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::VULKAN,
-        flags: Default::default(),
-        memory_budget_thresholds: Default::default(),
-        backend_options: Default::default(),
-        display: None,
-    });
-
-    let owh = OwnedWindowHandle::new(window.clone()).unwrap();
-    let surface = instance.create_surface(owh).unwrap();
-
-    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        #[cfg(target_os = "android")]
-        power_preference: wgpu::PowerPreference::LowPower,
-        #[cfg(not(target_os = "android"))]
-        power_preference: wgpu::PowerPreference::HighPerformance,
-        compatible_surface: Some(&surface),
-        force_fallback_adapter: false,
-        apply_limit_buckets: true,
-    }))?;
+    let (instance, surface, adapter) =
+        try_init_backend(wgpu::Backends::VULKAN, &window).or_else(|e| {
+            log::warn!("Vulkan backend unavailable, trying GL fallback. Error: {e}");
+            try_init_backend(wgpu::Backends::GL, &window)
+        })?;
 
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: None,
         required_features: wgpu::Features::empty(),
         experimental_features: wgpu::ExperimentalFeatures::disabled(),
-        required_limits: wgpu::Limits::default(),
+        required_limits: adapter.limits(),
         memory_hints: Default::default(),
         trace: wgpu::Trace::Off,
     }))?;
@@ -76,6 +61,34 @@ pub fn wgpu_init(window: Arc<Window>) -> anyhow::Result<(WgpuState, WgpuSurface)
         },
         WgpuSurface { surface, config },
     ))
+}
+
+fn try_init_backend(
+    backends: wgpu::Backends,
+    window: &Arc<Window>,
+) -> anyhow::Result<(wgpu::Instance, wgpu::Surface<'static>, wgpu::Adapter)> {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends,
+        flags: Default::default(),
+        memory_budget_thresholds: Default::default(),
+        backend_options: Default::default(),
+        display: None,
+    });
+
+    let owh = OwnedWindowHandle::new(window.clone()).unwrap();
+    let surface = instance.create_surface(owh).unwrap();
+
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        #[cfg(target_os = "android")]
+        power_preference: wgpu::PowerPreference::LowPower,
+        #[cfg(not(target_os = "android"))]
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        compatible_surface: Some(&surface),
+        force_fallback_adapter: false,
+        apply_limit_buckets: true,
+    }))?;
+
+    Ok((instance, surface, adapter))
 }
 
 pub fn create_wgpu_surface(wgpu_state: &WgpuState, window: Arc<Window>) -> WgpuSurface {

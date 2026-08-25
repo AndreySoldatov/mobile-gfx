@@ -1,6 +1,7 @@
+use glam::Vec2;
 use image::{Rgba, RgbaImage};
 use slotmap::SlotMap;
-use wgpu::{include_wgsl, util::DeviceExt};
+use wgpu::include_wgsl;
 
 use crate::{
     atlas::{Atlas, AtlasKey},
@@ -14,9 +15,6 @@ use crate::{
 pub struct RenderState {
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) blit: Blit,
-    pub(crate) vertex_uniform_bg: wgpu::BindGroup,
-    pub(crate) vertex_uniform_buffer: wgpu::Buffer,
-    pub(crate) pixel_size: (u32, u32),
     pub(crate) vertices: Vec<Vertex>,
     pub(crate) indices: Vec<u32>,
     pub(crate) vertex_buffer: Buffer<Vertex>,
@@ -61,12 +59,6 @@ impl Vertex {
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct VertexUniform {
-    screen_size: [f32; 2],
-}
-
 pub(crate) fn white_pixel() -> RgbaImage {
     let mut pixel = RgbaImage::new(1, 1);
     pixel.put_pixel(0, 0, Rgba([255, 255, 255, 255]));
@@ -77,7 +69,7 @@ impl RenderState {
     pub(crate) fn new(
         wgpu_state: &WgpuState,
         config: &wgpu::SurfaceConfiguration,
-        pixel_size: (u32, u32),
+        pixel_size: Vec2,
         atlas_staging: &mut SlotMap<AtlasKey, RgbaImage>,
     ) -> Self {
         let white_pixel = atlas_staging.insert(white_pixel());
@@ -90,53 +82,12 @@ impl RenderState {
             .device
             .create_shader_module(include_wgsl!("assets/shaders/uber.wgsl"));
 
-        let vert_uni = VertexUniform {
-            screen_size: [pixel_size.0 as f32, pixel_size.1 as f32],
-        };
-
-        let vertex_uniform_buffer =
-            wgpu_state
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex uniform buffer"),
-                    contents: bytemuck::cast_slice(&[vert_uni]),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
-
-        let ver_uni_bgl =
-            wgpu_state
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("vertex uniform bgl"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                });
-
-        let ver_uni_bg = wgpu_state
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("vertex uniform bg"),
-                layout: &ver_uni_bgl,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: vertex_uniform_buffer.as_entire_binding(),
-                }],
-            });
-
         let render_pipeline_layout =
             wgpu_state
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("RPL"),
-                    bind_group_layouts: &[Some(&ver_uni_bgl), Some(&atlas.bgl)],
+                    bind_group_layouts: &[Some(&atlas.bgl)],
                     immediate_size: 0,
                 });
 
@@ -149,7 +100,13 @@ impl RenderState {
                     module: &shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Some(Vertex::desc())],
-                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[
+                            ("screen_width", pixel_size.x as f64),
+                            ("screen_height", pixel_size.y as f64),
+                        ],
+                        ..Default::default()
+                    },
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -159,7 +116,13 @@ impl RenderState {
                         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
-                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[
+                            ("screen_width", pixel_size.x as f64),
+                            ("screen_height", pixel_size.y as f64),
+                        ],
+                        ..Default::default()
+                    },
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
@@ -185,13 +148,8 @@ impl RenderState {
         Self {
             pipeline,
             blit,
-            pixel_size,
-            vertex_uniform_bg: ver_uni_bg,
-            vertex_uniform_buffer,
-
             vertices: vec![],
             indices: vec![],
-
             vertex_buffer: Buffer::new(
                 wgpu::BufferUsages::VERTEX,
                 &wgpu_state.device,
@@ -202,7 +160,6 @@ impl RenderState {
                 &wgpu_state.device,
                 "Index Buffer",
             ),
-
             clear_color: wgpu::Color::BLACK,
             atlas,
             white_pixel,
@@ -213,26 +170,6 @@ impl RenderState {
     pub(crate) fn clear_buffers(&mut self) {
         self.vertices.clear();
         self.indices.clear();
-    }
-
-    pub(crate) fn resize(
-        &mut self,
-        new_pixel_size: (u32, u32),
-        wgpu_state: &WgpuState,
-        format: wgpu::TextureFormat,
-    ) {
-        if new_pixel_size == self.pixel_size {
-            return;
-        }
-        self.pixel_size = new_pixel_size;
-        self.blit.resize(new_pixel_size, &wgpu_state.device, format);
-        wgpu_state.queue.write_buffer(
-            &self.vertex_uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[VertexUniform {
-                screen_size: [new_pixel_size.0 as f32, new_pixel_size.1 as f32],
-            }]),
-        );
     }
 
     pub(crate) fn render(
@@ -266,8 +203,7 @@ impl RenderState {
             {
                 if self.vertex_buffer.length() > 0 {
                     render_pass.set_pipeline(&self.pipeline);
-                    render_pass.set_bind_group(0, &self.vertex_uniform_bg, &[]);
-                    render_pass.set_bind_group(1, &self.atlas.bg, &[]);
+                    render_pass.set_bind_group(0, &self.atlas.bg, &[]);
                     render_pass.set_vertex_buffer(0, self.vertex_buffer.slice());
                     render_pass
                         .set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);
