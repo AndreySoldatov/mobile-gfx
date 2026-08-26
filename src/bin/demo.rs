@@ -5,7 +5,7 @@ use mobile_gfx::{
     RuntimeContext, SpriteKey, UserState,
     app::App,
     color::Color,
-    shapes::{Alignment, DrawSpriteParams, Size::Scale},
+    shapes::{Alignment, DrawRectParams, DrawShapeParams, DrawSpriteParams, Size::Scale, Stroke},
 };
 use winit::event_loop::EventLoop;
 
@@ -47,14 +47,18 @@ impl UserState for MyState {
         painter.draw_line(
             Vec2::new(50.0, 0.0),
             Vec2::new(50.0, height),
-            1.0,
-            Color::WHITE,
+            Stroke {
+                color: Color::WHITE,
+                thickness: 1.0,
+            },
         );
         painter.draw_line(
             Vec2::new(0.0, 50.0),
             Vec2::new(width, 50.0),
-            1.0,
-            Color::WHITE,
+            Stroke {
+                color: Color::WHITE,
+                thickness: 1.0,
+            },
         );
         painter.draw_text("180px", Vec2::new(width - 26.0, 40.0), Color::WHITE);
         painter.draw_text(
@@ -70,6 +74,46 @@ impl UserState for MyState {
                 alignment: Alignment::CENTER,
                 angle: self.a * 2.0,
                 size: Scale((self.a.sin() + 2.0) * 2.0),
+                ..Default::default()
+            },
+        );
+
+        painter.draw_rect_ex(
+            Vec2::new(100.0, 150.0),
+            DrawRectParams {
+                size: Vec2::new(40.0, 20.0),
+                shape_params: DrawShapeParams {
+                    stroke: Some(Stroke {
+                        thickness: 4.0,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                angle: self.a,
+                alignment: Alignment::CENTER,
+                ..Default::default()
+            },
+        );
+
+        painter.draw_circle_lines(
+            Vec2::new(50.0, 300.0),
+            (self.a.sin() + 2.0) * 20.0,
+            Stroke {
+                thickness: (self.a.sin() + 2.0) * 5.0,
+                color: Color::ORANGE,
+            },
+        );
+
+        painter.draw_line_segment(
+            &[
+                Vec2::new(100.0, 100.0),
+                Vec2::new(150.0, 150.0),
+                Vec2::new(100.0, 200.0),
+                Vec2::new(150.0, 250.0),
+            ],
+            false,
+            Stroke {
+                thickness: 10.0,
                 ..Default::default()
             },
         );

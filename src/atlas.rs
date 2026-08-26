@@ -1,4 +1,5 @@
 use anyhow::bail;
+use glam::Vec2;
 use image::RgbaImage;
 use slotmap::{SecondaryMap, SlotMap, new_key_type};
 
@@ -27,7 +28,7 @@ pub(crate) struct URect {
 
 #[derive(Clone, Copy)]
 pub(crate) struct AtlasRegion {
-    pub(crate) uv: [f32; 4],
+    pub(crate) uv: (Vec2, Vec2),
     pub(crate) px: URect,
 }
 
@@ -69,12 +70,16 @@ fn pack_images(
         regions.insert(
             k,
             AtlasRegion {
-                uv: [
-                    current_width as f32 / size as f32,
-                    current_height as f32 / size as f32,
-                    (current_width + w) as f32 / size as f32,
-                    (current_height + h) as f32 / size as f32,
-                ],
+                uv: (
+                    Vec2::new(
+                        current_width as f32 / size as f32,
+                        current_height as f32 / size as f32,
+                    ),
+                    Vec2::new(
+                        (current_width + w) as f32 / size as f32,
+                        (current_height + h) as f32 / size as f32,
+                    ),
+                ),
                 px: URect {
                     t: current_height,
                     l: current_width,

@@ -34,6 +34,14 @@ pub struct Vertex {
 }
 
 impl Vertex {
+    pub(crate) fn new(pos: Vec2, col: Color, uv: Vec2) -> Self {
+        Self {
+            pos: [pos.x, pos.y],
+            col: [col.r, col.g, col.b],
+            uv: [uv.x, uv.y],
+        }
+    }
+
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
@@ -227,6 +235,11 @@ impl RenderState {
         self.indices
             .extend(indices.iter().map(|i| i + self.vertices.len() as u32));
         self.vertices.extend_from_slice(verts);
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn get_index_offset(&self) -> u32 {
+        self.vertices.len() as u32
     }
 
     pub fn clear_color(&mut self, color: Color) {

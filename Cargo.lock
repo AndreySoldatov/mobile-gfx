@@ -1144,6 +1144,7 @@ dependencies = [
  "pollster",
  "raw-window-handle",
  "slotmap",
+ "smallvec",
  "thiserror 2.0.20",
  "tracing",
  "wgpu",
