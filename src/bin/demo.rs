@@ -80,8 +80,8 @@ impl UserState for MyState {
 
         painter.draw_rect_ex(
             Vec2::new(100.0, 150.0),
+            Vec2::new(40.0, 20.0),
             DrawRectParams {
-                size: Vec2::new(40.0, 20.0),
                 shape_params: DrawShapeParams {
                     stroke: Some(Stroke {
                         thickness: 4.0,
@@ -104,20 +104,6 @@ impl UserState for MyState {
             },
         );
 
-        painter.draw_line_segment(
-            &[
-                Vec2::new(100.0, 100.0),
-                Vec2::new(150.0, 150.0),
-                Vec2::new(100.0, 200.0),
-                Vec2::new(150.0, 250.0),
-            ],
-            false,
-            Stroke {
-                thickness: 10.0,
-                ..Default::default()
-            },
-        );
-
         for (id, pos) in &self.touches {
             painter.draw_text(
                 &format!("id: {}", id),
@@ -126,6 +112,44 @@ impl UserState for MyState {
             );
             painter.draw_rect(pos - Vec2::ONE * 10.0, Vec2::ONE * 20.0, Color::YELLOW);
         }
+
+        for i in 0..10 {
+            painter.draw_rect_ex(
+                Vec2::new(i as f32 * 18.0 + 2.0, 350.0),
+                Vec2::new(15.0, 24.0),
+                DrawRectParams {
+                    shape_params: DrawShapeParams::new(
+                        Color::WHITE,
+                        Stroke {
+                            color: Color::BLACK,
+                            ..Default::default()
+                        },
+                    ),
+                    ..Default::default()
+                },
+            );
+            painter.draw_text(
+                &format!("{}", ('a' as u8 + i) as char),
+                Vec2::new(i as f32 * 18.0 + 6.0, 355.0),
+                Color::BLACK,
+            );
+        }
+
+        painter.draw_poly_ex(
+            &[
+                Vec2::new(100.0, 100.0),
+                Vec2::new(140.0, 160.0),
+                Vec2::new(140.0, 250.0),
+                Vec2::new(90.0, 170.0),
+            ],
+            DrawShapeParams::new(
+                Color::WHITE,
+                Stroke {
+                    thickness: 4.0,
+                    color: Color::BLACK,
+                },
+            ),
+        );
     }
 }
 

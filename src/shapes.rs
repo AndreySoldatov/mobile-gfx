@@ -1,6 +1,7 @@
 use crate::{
     SpriteKey,
     color::Color,
+    ear_clip::triangulate,
     render::{RenderState, Vertex},
     utils::{circle_points_from, miter_vec, rect_points_from},
 };
@@ -167,8 +168,8 @@ impl RenderState {
         }
     }
 
-    pub fn draw_rect_ex(&mut self, pos: Vec2, params: DrawRectParams) {
-        let (p0, p1, p3, p2) = rect_points_from(pos, params.size, params.alignment, params.angle);
+    pub fn draw_rect_ex(&mut self, pos: Vec2, size: Vec2, params: DrawRectParams) {
+        let (p0, p1, p3, p2) = rect_points_from(pos, size, params.alignment, params.angle);
 
         if let Some(fill) = params.shape_params.fill {
             self.draw_quad(p0, p1, p2, p3, fill);
@@ -194,12 +195,12 @@ impl RenderState {
     pub fn draw_rect(&mut self, pos: Vec2, size: Vec2, fill: Color) {
         self.draw_rect_ex(
             pos,
+            size,
             DrawRectParams {
                 shape_params: DrawShapeParams {
                     fill: Some(fill),
                     stroke: None,
                 },
-                size,
                 ..Default::default()
             },
         );
@@ -208,12 +209,12 @@ impl RenderState {
     pub fn draw_rect_lines(&mut self, pos: Vec2, size: Vec2, stroke: Stroke) {
         self.draw_rect_ex(
             pos,
+            size,
             DrawRectParams {
                 shape_params: DrawShapeParams {
                     fill: None,
                     stroke: Some(stroke),
                 },
-                size,
                 ..Default::default()
             },
         );
@@ -272,6 +273,33 @@ impl RenderState {
                 stroke: Some(stroke),
             },
         );
+    }
+
+    pub fn draw_poly_ex(&mut self, points: &[Vec2], params: DrawShapeParams) {
+        if let Some(fill) = params.fill {
+            let offset = self.get_index_offset();
+
+            if let Some(mut idcs) = triangulate(points, offset) {
+                let wp = self.white_pixel();
+                self.vertices.reserve(points.len());
+                self.vertices
+                    .extend(points.iter().map(|p| Vertex::new(*p, fill, wp)));
+
+                self.indices.append(&mut idcs);
+            }
+        }
+
+        if let Some(stroke) = params.stroke {
+            self.draw_line_segment(points, true, stroke);
+        }
+    }
+
+    pub fn draw_poly(&mut self, points: &[Vec2], fill: Color) {
+        self.draw_poly_ex(points, DrawShapeParams::fill(fill));
+    }
+
+    pub fn draw_poly_lines(&mut self, points: &[Vec2], stroke: Stroke) {
+        self.draw_poly_ex(points, DrawShapeParams::stroke(stroke));
     }
 
     pub fn draw_sprite_ex(&mut self, pos: Vec2, sprite: SpriteKey, params: DrawSpriteParams) {
@@ -398,10 +426,32 @@ impl Default for DrawShapeParams {
     }
 }
 
+impl DrawShapeParams {
+    pub fn stroke(stroke: Stroke) -> Self {
+        Self {
+            fill: None,
+            stroke: Some(stroke),
+        }
+    }
+
+    pub fn fill(fill: Color) -> Self {
+        Self {
+            fill: Some(fill),
+            stroke: None,
+        }
+    }
+
+    pub fn new(fill: Color, stroke: Stroke) -> Self {
+        Self {
+            fill: Some(fill),
+            stroke: Some(stroke),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct DrawRectParams {
     pub shape_params: DrawShapeParams,
-    pub size: Vec2,
     pub angle: f32,
     pub alignment: Alignment,
 }
@@ -410,7 +460,6 @@ impl Default for DrawRectParams {
     fn default() -> Self {
         Self {
             shape_params: DrawShapeParams::default(),
-            size: Vec2::ZERO,
             angle: 0.0,
             alignment: Alignment::default(),
         }

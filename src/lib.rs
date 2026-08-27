@@ -7,6 +7,7 @@ use crate::{atlas::AtlasKey, input::InputState, render::RenderState};
 mod atlas;
 mod blit;
 mod buffer;
+mod ear_clip;
 mod font;
 mod owned_window_handle;
 mod runtime;
