@@ -125,6 +125,21 @@ impl<U: UserState> Runtime<U> {
         self.wgpu_state.queue.present(output);
 
         self.window.request_redraw();
+
+        #[cfg(feature = "wgpu-counters")]
+        {
+            self.wgpu_state
+                .device
+                .poll(wgpu::PollType::wait_indefinitely())
+                .unwrap();
+            log::info!(
+                "Internal counters: {:#?}",
+                self.wgpu_state.device.get_internal_counters()
+            );
+            if let Some(alloc_stats) = self.wgpu_state.device.generate_allocator_report() {
+                log::info!("Allocator report: {:#?}", alloc_stats);
+            }
+        }
     }
 
     pub(crate) fn issue_new_surface(&mut self) {

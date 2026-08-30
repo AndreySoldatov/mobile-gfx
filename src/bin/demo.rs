@@ -6,6 +6,7 @@ use mobile_gfx::{
     app::App,
     color::Color,
     shapes::{Alignment, DrawRectParams, DrawShapeParams, DrawSpriteParams, Size::Scale, Stroke},
+    text::DrawTextParams,
 };
 use winit::event_loop::EventLoop;
 
@@ -78,6 +79,23 @@ impl UserState for MyState {
             },
         );
 
+        painter.draw_text(
+            "The quick brown\nfox jumps over\nthe lazy dog.\n123456q\n097654",
+            Vec2::new(90.0, 200.0),
+            Color::WHITE,
+        );
+        painter.draw_rect_lines(
+            Vec2::new(90.0, 200.0),
+            painter.text_rect(
+                "The quick brown\nfox jumps over\nthe lazy dog.\n123456q\n097654",
+                DrawTextParams::default(),
+            ),
+            Stroke {
+                color: Color::RED,
+                ..Default::default()
+            },
+        );
+
         painter.draw_rect_ex(
             Vec2::new(100.0, 150.0),
             Vec2::new(40.0, 20.0),
@@ -134,26 +152,12 @@ impl UserState for MyState {
                 Color::BLACK,
             );
         }
-
-        painter.draw_poly_ex(
-            &[
-                Vec2::new(100.0, 100.0),
-                Vec2::new(140.0, 160.0),
-                Vec2::new(140.0, 250.0),
-                Vec2::new(90.0, 170.0),
-            ],
-            DrawShapeParams::new(
-                Color::WHITE,
-                Stroke {
-                    thickness: 4.0,
-                    color: Color::BLACK,
-                },
-            ),
-        );
     }
 }
 
 fn main() {
+    env_logger::init();
+
     let event_loop = EventLoop::new().unwrap();
 
     let mut app = App::<MyState>::new();

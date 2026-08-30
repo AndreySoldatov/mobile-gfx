@@ -18,3 +18,8 @@ slotmap = "1.1.1"
 thiserror = "2.0.20"
 bdf-parser = { path = "./bdf-parser" }
 smallvec = "1.15.2"
+env_logger = "0.11.11"
+
+[features]
+default = []
+wgpu-counters = ["wgpu/counters"]

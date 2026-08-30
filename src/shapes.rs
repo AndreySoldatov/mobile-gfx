@@ -8,7 +8,7 @@ use crate::{
 use glam::Vec2;
 
 impl RenderState {
-    pub fn white_pixel(&self) -> Vec2 {
+    pub(crate) fn white_pixel(&self) -> Vec2 {
         self.atlas.entry(self.white_pixel).uv.0
     }
 
@@ -54,17 +54,38 @@ impl RenderState {
         }
     }
 
-    pub fn draw_quad(&mut self, p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, c: Color) {
-        let wp = self.white_pixel();
-        self.append_vertices(
-            &[
-                Vertex::new(p0, c, wp),
-                Vertex::new(p1, c, wp),
-                Vertex::new(p2, c, wp),
-                Vertex::new(p3, c, wp),
-            ],
-            &[0, 1, 2, 2, 3, 0],
-        );
+    pub fn draw_quad_ex(
+        &mut self,
+        p0: Vec2,
+        p1: Vec2,
+        p2: Vec2,
+        p3: Vec2,
+        params: DrawShapeParams,
+    ) {
+        if let Some(fill) = params.fill {
+            let wp = self.white_pixel();
+            self.append_vertices(
+                &[
+                    Vertex::new(p0, fill, wp),
+                    Vertex::new(p1, fill, wp),
+                    Vertex::new(p2, fill, wp),
+                    Vertex::new(p3, fill, wp),
+                ],
+                &[0, 1, 2, 2, 3, 0],
+            );
+        }
+
+        if let Some(stroke) = params.stroke {
+            self.draw_line_segment(&[p0, p1, p2, p3], true, stroke);
+        }
+    }
+
+    pub fn draw_quad(&mut self, p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, fill: Color) {
+        self.draw_quad_ex(p0, p1, p2, p3, DrawShapeParams::fill(fill));
+    }
+
+    pub fn draw_quad_lines(&mut self, p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, stroke: Stroke) {
+        self.draw_quad_ex(p0, p1, p2, p3, DrawShapeParams::stroke(stroke));
     }
 
     pub fn draw_line(&mut self, p0: Vec2, p1: Vec2, stroke: Stroke) {
