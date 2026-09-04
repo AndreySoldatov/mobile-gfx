@@ -5,10 +5,12 @@ use winit::event::{ElementState, Touch};
 
 use crate::utils::{contains, factor, integer_fit};
 
+pub type TouchId = u32;
+
 const MOUSE_ID: u32 = 1000;
 
 pub struct InputState {
-    table: HashMap<u32, Vec2>,
+    table: HashMap<TouchId, Vec2>,
     physical_size: Vec2,
     logical_size: Vec2,
     mouse_state: ElementState,
@@ -74,7 +76,7 @@ impl InputState {
         }
     }
 
-    pub fn touch_map(&self) -> &HashMap<u32, Vec2> {
+    pub fn touch_map(&self) -> &HashMap<TouchId, Vec2> {
         &self.table
     }
 

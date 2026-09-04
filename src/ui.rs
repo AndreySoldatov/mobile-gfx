@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::HashSet,
+    hash::{Hash, Hasher},
+};
 
 use glam::Vec2;
 use rustc_hash::FxHasher;
@@ -8,10 +11,11 @@ type WidgetId = u64;
 use crate::{
     SpriteKey,
     color::Color,
-    input::InputState,
+    input::{InputState, TouchId},
     render::RenderState,
     shapes::{DrawRectParams, DrawShapeParams, Stroke},
     text::DrawTextParams,
+    utils::{Rect, contains},
 };
 
 pub struct UiTheme {
@@ -20,11 +24,6 @@ pub struct UiTheme {
     pub foreground: Color,
     pub primary: Color,
     pub secondary: Color,
-}
-
-pub struct UiState {
-    pub theme: UiTheme,
-    active: Vec<WidgetId>,
 }
 
 pub enum ButtonContent {
@@ -70,22 +69,30 @@ impl Default for ButtonParams {
     }
 }
 
+#[derive(Debug)]
 pub struct ButtonState {
     pub pressed: bool,
     pub down: bool,
     pub released: bool,
 }
 
+pub struct UiState {
+    pub theme: UiTheme,
+    active: HashSet<(TouchId, WidgetId)>,
+}
+
 impl UiState {
     pub fn new(theme: UiTheme) -> Self {
         Self {
             theme,
-            active: vec![],
+            active: HashSet::new(),
         }
     }
 
-    fn active(&self, id: &WidgetId) -> bool {
-        self.active.contains(id)
+    fn active(&self, id: &WidgetId) -> Option<TouchId> {
+        self.active
+            .iter()
+            .find_map(|(t_id, w_id)| if w_id == id { Some(*t_id) } else { None })
     }
 
     pub fn button(
@@ -95,26 +102,71 @@ impl UiState {
         pos: Vec2,
         params: &ButtonParams,
     ) -> ButtonState {
-        // input
-        let id = params.hash();
-
-        if self.active(&id) {}
-
-        // draw
-        let bound = match &params.content {
+        let bounds = match &params.content {
             ButtonContent::Text(text) => painter.text_rect(text, DrawTextParams::default()),
             ButtonContent::Icon(icon) => {
                 let ar = painter.atlas.entry(icon.atlas_key);
                 Vec2::new(ar.px.w as f32, ar.px.h as f32)
             }
         } + Vec2::ONE * params.padding * 2.0;
+        let rect = Rect {
+            tl: pos,
+            wh: bounds,
+        };
 
+        // input
+        let id = params.hash();
+        let mut res_state = ButtonState {
+            down: false,
+            pressed: false,
+            released: false,
+        };
+
+        if let Some(touch) = self.active(&id) {
+            if let Some(touch_pos) = input.touch_map().iter().find_map(|(t_id, touch_pos)| {
+                if *t_id == touch {
+                    Some(*touch_pos)
+                } else {
+                    None
+                }
+            }) {
+                res_state.down = true;
+                if !params.capturing {
+                    if !contains(rect, touch_pos) {
+                        res_state.released = true;
+                        res_state.down = false;
+                        self.active.remove(&(touch, id));
+                    }
+                }
+            } else {
+                res_state.released = true;
+                self.active.remove(&(touch, id));
+            }
+        } else {
+            if let Some(touch) = input.touch_map().iter().find_map(|(t_id, touch_pos)| {
+                if contains(rect, *touch_pos) {
+                    Some(*t_id)
+                } else {
+                    None
+                }
+            }) {
+                self.active.insert((touch, id));
+                res_state.pressed = true;
+                res_state.down = true;
+            }
+        }
+
+        // draw
         painter.draw_rect_ex(
             pos,
-            bound,
+            bounds,
             DrawRectParams {
                 shape_params: DrawShapeParams {
-                    fill: Some(self.theme.background),
+                    fill: Some(if res_state.down {
+                        self.theme.pressed
+                    } else {
+                        self.theme.background
+                    }),
                     stroke: Some(Stroke {
                         color: self.theme.foreground,
                         thickness: 1.0,
@@ -135,6 +187,6 @@ impl UiState {
             }
         };
 
-        todo!()
+        res_state
     }
 }
