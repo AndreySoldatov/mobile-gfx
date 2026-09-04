@@ -351,6 +351,10 @@ impl RenderState {
     pub fn draw_sprite(&mut self, pos: Vec2, sprite: SpriteKey) {
         self.draw_sprite_ex(pos, sprite, Default::default());
     }
+
+    pub fn draw_pixel(&mut self, pos: Vec2, color: Color) {
+        self.draw_rect(pos, Vec2::ONE, color);
+    }
 }
 
 #[derive(Clone, Copy)]

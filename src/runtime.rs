@@ -5,8 +5,10 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
     CreationContext, FrameContext, RuntimeContext, UserState,
+    color::Color,
     input::InputState,
     render::RenderState,
+    ui::{UiState, UiTheme},
     wgpu_state::{WgpuState, WgpuSurface, create_wgpu_surface, wgpu_init},
 };
 
@@ -18,6 +20,7 @@ pub(crate) struct Runtime<U: UserState> {
     pub(crate) user_state: U,
     pub(crate) ctx: FrameContext,
     pub(crate) input: InputState,
+    pub(crate) ui: UiState,
 }
 
 impl<U: UserState> Runtime<U> {
@@ -68,6 +71,13 @@ impl<U: UserState> Runtime<U> {
                 frame_size: pixel_size,
             },
             input,
+            ui: UiState::new(UiTheme {
+                background: Color::BLACK,
+                foreground: Color::WHITE,
+                pressed: Color::DARK_GRAY,
+                primary: Color::RED,
+                secondary: Color::BLUE,
+            }),
         }
     }
 
@@ -81,6 +91,7 @@ impl<U: UserState> Runtime<U> {
             painter: &mut self.render_state,
             input: &self.input,
             frame: &self.ctx,
+            ui: &mut self.ui,
         };
         self.user_state.frame(fctx);
 

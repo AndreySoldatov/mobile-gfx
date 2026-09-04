@@ -2,7 +2,7 @@ use glam::Vec2;
 use image::RgbaImage;
 use slotmap::SlotMap;
 
-use crate::{atlas::AtlasKey, input::InputState, render::RenderState};
+use crate::{atlas::AtlasKey, input::InputState, render::RenderState, ui::UiState};
 
 mod atlas;
 mod blit;
@@ -20,6 +20,7 @@ pub mod input;
 pub mod render;
 pub mod shapes;
 pub mod text;
+pub mod ui;
 
 pub trait UserState {
     fn create(_cc: &mut CreationContext) -> Self;
@@ -29,6 +30,7 @@ pub trait UserState {
 pub struct RuntimeContext<'a> {
     pub input: &'a InputState,
     pub painter: &'a mut RenderState,
+    pub ui: &'a mut UiState,
     pub frame: &'a FrameContext,
 }
 
