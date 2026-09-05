@@ -87,29 +87,32 @@ impl<U: UserState> Runtime<U> {
             return;
         };
 
-        let fctx = RuntimeContext {
+        let runtime_context = RuntimeContext {
             painter: &mut self.render_state,
             input: &self.input,
             frame: &self.ctx,
             ui: &mut self.ui,
         };
-        self.user_state.frame(fctx);
+        self.user_state.frame(runtime_context);
 
         let output = match surface.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
             wgpu::CurrentSurfaceTexture::Timeout
             | wgpu::CurrentSurfaceTexture::Occluded
             | wgpu::CurrentSurfaceTexture::Validation => {
+                self.render_state.clear_buffers();
                 return;
             }
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Suboptimal(_) => {
                 surface
                     .surface
                     .configure(&self.wgpu_state.device, &surface.config);
+                self.render_state.clear_buffers();
                 return;
             }
             wgpu::CurrentSurfaceTexture::Lost => {
                 self.issue_new_surface();
+                self.render_state.clear_buffers();
                 return;
             }
         };

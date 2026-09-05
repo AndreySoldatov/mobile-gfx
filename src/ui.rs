@@ -149,7 +149,8 @@ impl UiState {
                 } else {
                     None
                 }
-            }) {
+            }) && !self.active.iter().any(|(t_id, _)| *t_id == touch)
+            {
                 self.active.insert((touch, id));
                 res_state.pressed = true;
                 res_state.down = true;

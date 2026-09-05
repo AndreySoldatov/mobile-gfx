@@ -117,6 +117,12 @@ impl UserState for MyState {
             }
         }
 
+        painter.draw_circle(
+            Vec2::new(100.0, 100.0),
+            (self.a.sin() + 1.0) * 20.0,
+            Color::RED,
+        );
+
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
 }

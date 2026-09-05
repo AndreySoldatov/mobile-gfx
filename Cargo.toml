@@ -9,7 +9,7 @@ bytemuck = { version = "1.25.2", features = ["derive"] }
 glam = "0.33.3"
 log = "0.4.33"
 pollster = "1.0.1"
-wgpu = "30.0.0"
+wgpu = "30.0.1"
 winit = { version = "0.30.13", features = ["android-game-activity"] }
 tracing = { version = "0.1.40", features = ["log"] }
 raw-window-handle = "0.6.2"

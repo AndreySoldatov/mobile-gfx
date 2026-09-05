@@ -1,10 +1,12 @@
+use std::f32::consts::TAU;
+
 use glam::Vec2;
 
 use crate::shapes::{Alignment, HorizontalAlignment, VerticalAlignment};
 
 pub(crate) const EPS: f32 = 0.0001;
-pub(crate) const PI: f32 = 3.141592;
-pub(crate) const TAU: f32 = PI * 2.0;
+
+include!(concat!(env!("OUT_DIR"), "/trig_lut.rs"));
 
 pub(crate) fn factor(ps: Vec2, ls: Vec2) -> f32 {
     (ps / ls).floor().min_element().max(1.0)
@@ -32,6 +34,13 @@ pub(crate) fn contains(rect: Rect, pos: Vec2) -> bool {
         && pos.y < rect.tl.y + rect.wh.y
 }
 
+pub(crate) fn rotate_lut(v: Vec2, a: f32) -> Vec2 {
+    let index =
+        ((a.rem_euclid(TAU) / TAU * TRIG_LUT.len() as f32).round()) as usize % TRIG_LUT.len();
+    let (sin, cos) = TRIG_LUT[index];
+    Vec2::new(v.x * cos - v.y * sin, v.x * sin + v.y * cos)
+}
+
 pub(crate) fn rect_points_from(
     pos: Vec2,
     size: Vec2,
@@ -56,21 +65,24 @@ pub(crate) fn rect_points_from(
     let mut p3 = p0 + size;
 
     if angle > EPS {
-        p0 = p0.rotate_angle(angle);
-        p1 = p1.rotate_angle(angle);
-        p2 = p2.rotate_angle(angle);
-        p3 = p3.rotate_angle(angle);
+        p0 = rotate_lut(p0, angle);
+        p1 = rotate_lut(p1, angle);
+        p2 = rotate_lut(p2, angle);
+        p3 = rotate_lut(p3, angle);
     }
 
     (p0 + pos, p1 + pos, p2 + pos, p3 + pos)
 }
 
 pub(crate) fn circle_points_from(pos: Vec2, radius: f32) -> Vec<Vec2> {
-    let count = radius as u32;
+    let count = (radius as usize).next_power_of_two().min(256).max(8);
+    let step = TRIG_LUT.len() / count;
+
     let mut res = Vec::with_capacity(count as usize);
     for i in 0..count {
-        let angle = (i as f32 / count as f32) * TAU;
-        res.push(Vec2::new(angle.cos() * radius, angle.sin() * radius) + pos);
+        let index = i * step;
+        let (sin, cos) = TRIG_LUT[index];
+        res.push(Vec2::new(cos * radius, sin * radius) + pos);
     }
     res
 }
