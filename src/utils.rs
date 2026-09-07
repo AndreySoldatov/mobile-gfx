@@ -64,7 +64,7 @@ pub(crate) fn rect_points_from(
     let mut p2 = p0 + Vec2::Y * size;
     let mut p3 = p0 + size;
 
-    if angle > EPS {
+    if angle.abs() > EPS {
         p0 = rotate_lut(p0, angle);
         p1 = rotate_lut(p1, angle);
         p2 = rotate_lut(p2, angle);

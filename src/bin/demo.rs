@@ -1,15 +1,102 @@
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    hash::{Hash, Hasher},
+};
 
 use glam::Vec2;
 use mobile_gfx::{
-    RuntimeContext, UserState,
+    RuntimeContext, SpriteKey, UserState,
     app::App,
     color::Color,
-    ui::{Button, ButtonState, Slider, Widget},
+    shapes::{Alignment, DrawRectParams, DrawShapeParams, DrawSpriteParams, Stroke},
+    ui::{Button, ButtonState, Slider, UiState, UiTheme, Widget},
 };
+use rustc_hash::FxHasher;
 use winit::event_loop::EventLoop;
 
 const WINDOW_SIZE: usize = 16;
+
+struct ThumbStick {
+    sprite: SpriteKey,
+    outer_radius: f32,
+    center: Vec2,
+}
+
+impl Widget for ThumbStick {
+    type State = Vec2;
+
+    fn draw(
+        self,
+        ui: &mut UiState,
+        painter: &mut mobile_gfx::render::RenderState,
+        input: &mobile_gfx::input::InputState,
+    ) -> Self::State {
+        let w_id = self.id();
+
+        // Input
+        let mut result = Vec2::ZERO;
+        if let Some(t_id) = ui.active_touch_from_widget(&w_id) {
+            if let Some(t_pos) = input.get_touch(t_id) {
+                let delta = t_pos - self.center;
+                let length = delta.length().min(self.outer_radius);
+                let norm = delta.normalize() * length;
+                result = norm / self.outer_radius;
+            } else {
+                ui.remove_active(t_id, w_id);
+            }
+        } else {
+            if let Some((t_id, t_pos)) = input.touch_map().iter().find_map(|(t_id, t_pos)| {
+                if (t_pos - self.center).length() <= self.outer_radius {
+                    Some((*t_id, t_pos))
+                } else {
+                    None
+                }
+            }) && ui.active_widget_from_touch(&t_id).is_none()
+            {
+                let delta = t_pos - self.center;
+                let length = delta.length().min(self.outer_radius);
+                let norm = delta.normalize() * length;
+                result = norm / self.outer_radius;
+                ui.set_active(t_id, w_id);
+            }
+        }
+
+        // Draw
+        painter.draw_circle_ex(
+            self.center,
+            self.outer_radius,
+            DrawShapeParams::new(
+                ui.theme.background,
+                Stroke {
+                    thickness: 1.0,
+                    color: ui.theme.foreground,
+                },
+            ),
+        );
+        let inner_center = result * (self.outer_radius - self.sprite.width() as f32 * 0.4);
+
+        let angle = result.to_angle();
+
+        painter.draw_sprite_ex(
+            inner_center + self.center,
+            self.sprite,
+            DrawSpriteParams {
+                alignment: Alignment::CENTER,
+                angle: angle,
+                ..Default::default()
+            },
+        );
+
+        result
+    }
+
+    fn id(&self) -> mobile_gfx::ui::WidgetId {
+        let mut hasher = FxHasher::default();
+        self.sprite.width().hash(&mut hasher);
+        self.outer_radius.to_bits().hash(&mut hasher);
+        hasher.finish()
+    }
+}
 
 struct MyState {
     status_window: VecDeque<ButtonState>,
@@ -17,16 +104,32 @@ struct MyState {
     last_frame: std::time::Instant,
     capture: bool,
     speed: f32,
+    ui: UiState,
+    stick: SpriteKey,
 }
 
 impl UserState for MyState {
-    fn create(_cc: &mut mobile_gfx::CreationContext) -> Self {
+    fn create(cc: &mut mobile_gfx::CreationContext) -> Self {
+        let sprite = cc.load_image(
+            image::load_from_memory(include_bytes!("../../thumbstick.png"))
+                .unwrap()
+                .to_rgba8(),
+        );
+
         Self {
             status_window: VecDeque::new(),
             a: 0.0,
             last_frame: std::time::Instant::now(),
             capture: true,
             speed: 1.0,
+            ui: UiState::new(UiTheme {
+                background: Color::BLACK,
+                foreground: Color::WHITE,
+                pressed: Color::DARK_GRAY,
+                primary: Color::RED,
+                secondary: Color::BLUE,
+            }),
+            stick: sprite,
         }
     }
 
@@ -34,7 +137,6 @@ impl UserState for MyState {
         let RuntimeContext {
             input,
             painter,
-            ui,
             frame,
         } = ctx;
         let (width, _height) = (frame.width(), frame.height());
@@ -44,7 +146,7 @@ impl UserState for MyState {
         self.a += dt.as_secs_f32() * self.speed;
 
         if Button::new_text(Vec2::new(100.0, 10.0), "capture")
-            .draw(ui, painter, input)
+            .draw(&mut self.ui, painter, input)
             .pressed
         {
             self.capture = !self.capture;
@@ -59,7 +161,7 @@ impl UserState for MyState {
         self.status_window.push_back(
             Button::new_text(button_pos, "button")
                 .with_capturing(self.capture)
-                .draw(ui, painter, input),
+                .draw(&mut self.ui, painter, input),
         );
         if self.status_window.len() > WINDOW_SIZE {
             self.status_window.pop_front();
@@ -110,19 +212,17 @@ impl UserState for MyState {
         Slider {
             current: &mut self.speed,
             min: 0.0,
-            max: 2.0,
+            max: 4.0,
             pos: Vec2::new(10.0, 10.0),
             size: Vec2::new(60.0, 6.0),
         }
-        .draw(ui, painter, input);
+        .draw(&mut self.ui, painter, input);
 
         painter.draw_text(
             &format!("Speed: {:.2?}", self.speed),
             Vec2::new(10.0, 20.0),
             Color::WHITE,
         );
-
-        std::thread::sleep(std::time::Duration::from_millis(20));
     }
 }
 
