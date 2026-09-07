@@ -18,6 +18,13 @@ pub struct Rect {
     pub wh: Vec2,
 }
 
+pub fn contains(rect: Rect, pos: Vec2) -> bool {
+    pos.x > rect.tl.x
+        && pos.x < rect.tl.x + rect.wh.x
+        && pos.y > rect.tl.y
+        && pos.y < rect.tl.y + rect.wh.y
+}
+
 pub(crate) fn integer_fit(ps: Vec2, ls: Vec2) -> Rect {
     let scale = factor(ps, ls);
     let size = ls * scale;
@@ -25,13 +32,6 @@ pub(crate) fn integer_fit(ps: Vec2, ls: Vec2) -> Rect {
         tl: (ps - size) * 0.5,
         wh: size,
     }
-}
-
-pub(crate) fn contains(rect: Rect, pos: Vec2) -> bool {
-    pos.x > rect.tl.x
-        && pos.x < rect.tl.x + rect.wh.x
-        && pos.y > rect.tl.y
-        && pos.y < rect.tl.y + rect.wh.y
 }
 
 pub(crate) fn rotate_lut(v: Vec2, a: f32) -> Vec2 {

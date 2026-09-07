@@ -11,7 +11,6 @@ mod ear_clip;
 mod font;
 mod owned_window_handle;
 mod runtime;
-mod utils;
 mod wgpu_state;
 
 pub mod app;
@@ -21,6 +20,7 @@ pub mod render;
 pub mod shapes;
 pub mod text;
 pub mod ui;
+pub mod utils;
 
 pub trait UserState {
     fn create(_cc: &mut CreationContext) -> Self;

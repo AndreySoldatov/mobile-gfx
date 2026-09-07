@@ -5,7 +5,7 @@ use mobile_gfx::{
     RuntimeContext, UserState,
     app::App,
     color::Color,
-    ui::{ButtonParams, ButtonState},
+    ui::{Button, ButtonState, Slider, Widget},
 };
 use winit::event_loop::EventLoop;
 
@@ -16,6 +16,7 @@ struct MyState {
     a: f32,
     last_frame: std::time::Instant,
     capture: bool,
+    speed: f32,
 }
 
 impl UserState for MyState {
@@ -25,6 +26,7 @@ impl UserState for MyState {
             a: 0.0,
             last_frame: std::time::Instant::now(),
             capture: true,
+            speed: 1.0,
         }
     }
 
@@ -39,38 +41,26 @@ impl UserState for MyState {
 
         let dt = self.last_frame.elapsed();
         self.last_frame = std::time::Instant::now();
-        self.a += dt.as_secs_f32();
+        self.a += dt.as_secs_f32() * self.speed;
 
-        if ui
-            .button(
-                painter,
-                input,
-                Vec2::new(120.0, 180.0),
-                &ButtonParams {
-                    content: mobile_gfx::ui::ButtonContent::Text("capture".into()),
-                    ..Default::default()
-                },
-            )
+        if Button::new_text(Vec2::new(100.0, 10.0), "capture")
+            .draw(ui, painter, input)
             .pressed
         {
             self.capture = !self.capture;
         }
 
-        let button_pos = Vec2::ONE * 10.0
+        let button_pos = Vec2::new(10.0, 34.0)
             + Vec2::new(
                 (((3.0 * self.a * 0.2).cos() + 1.0) * 0.5) * (width - 60.0),
-                (((4.0 * self.a * 0.2).sin() + 1.0) * 0.5) * (80.0),
+                (((4.0 * self.a * 0.2).sin() + 1.0) * 0.5) * (60.0),
             );
 
-        self.status_window.push_back(ui.button(
-            painter,
-            input,
-            button_pos,
-            &ButtonParams {
-                capturing: self.capture,
-                ..Default::default()
-            },
-        ));
+        self.status_window.push_back(
+            Button::new_text(button_pos, "button")
+                .with_capturing(self.capture)
+                .draw(ui, painter, input),
+        );
         if self.status_window.len() > WINDOW_SIZE {
             self.status_window.pop_front();
         }
@@ -117,10 +107,19 @@ impl UserState for MyState {
             }
         }
 
-        painter.draw_circle(
-            Vec2::new(100.0, 100.0),
-            (self.a.sin() + 1.0) * 20.0,
-            Color::RED,
+        Slider {
+            current: &mut self.speed,
+            min: 0.0,
+            max: 2.0,
+            pos: Vec2::new(10.0, 10.0),
+            size: Vec2::new(60.0, 6.0),
+        }
+        .draw(ui, painter, input);
+
+        painter.draw_text(
+            &format!("Speed: {:.2?}", self.speed),
+            Vec2::new(10.0, 20.0),
+            Color::WHITE,
         );
 
         std::thread::sleep(std::time::Duration::from_millis(20));

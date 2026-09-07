@@ -76,11 +76,21 @@ impl InputState {
         }
     }
 
+    pub(crate) fn resize(&mut self, new_p_size: Vec2) {
+        self.physical_size = new_p_size;
+    }
+}
+
+impl InputState {
     pub fn touch_map(&self) -> &HashMap<TouchId, Vec2> {
         &self.table
     }
 
-    pub(crate) fn resize(&mut self, new_p_size: Vec2) {
-        self.physical_size = new_p_size;
+    pub fn get_touch(&self, id: TouchId) -> Option<Vec2> {
+        self.table.iter().find_map(
+            |(t_id, touch_pos)| {
+                if *t_id == id { Some(*touch_pos) } else { None }
+            },
+        )
     }
 }
